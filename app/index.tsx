@@ -1,23 +1,33 @@
-import { Text, TouchableOpacity } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import React, { useEffect, useState } from "react";
+import { Redirect } from "expo-router";
+import { isAuthenticated } from "@/lib/auth";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 
 export default function Index() {
-  const router = useRouter();
+  const {expoPushToken} = usePushNotifications();
+  const [hasToken, setHasToken] = useState<boolean | null>(null); // Start with `null` to represent the loading state
 
-  const handlePress = () => {
-    router.push("(auth)/welcome");
-  };
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const isAuth = await isAuthenticated(); 
+        setHasToken(isAuth); // Set the boolean result
+      } catch (error) {
+        console.error("Error checking authentication:", error);
+        setHasToken(false); // Set `false` in case of an error
+      }
+    };
 
-  return (
-    <SafeAreaView className="flex-1 items-center justify-center bg-white">
-      <Text className="text-purple-500 text-4xl">ChatterBox</Text>
-      <TouchableOpacity
-        className="bg-black p-2 mt-2 rounded-xl"
-        onPress={handlePress}
-      >
-        <Text className="text-white">Click here to go to welcome screen</Text>
-      </TouchableOpacity>
-    </SafeAreaView>
+    checkAuth();
+  }, [hasToken]);
+
+  
+  if (hasToken === null) {
+    return null; // Optionally replace with a spinner or other loading UI
+  }
+  return hasToken ? (
+    <Redirect href={"/(root)/profile"} />
+  ) : (
+    <Redirect href={"/(auth)/welcome"} />
   );
 }

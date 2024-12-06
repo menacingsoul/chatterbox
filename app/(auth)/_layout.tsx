@@ -7,6 +7,7 @@ import {
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
 import "../../global.css";
+import { StatusBar } from "react-native";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -28,9 +29,10 @@ const Layout = () => {
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="welcome" />
-      <Stack.Screen name="register" />
-      <Stack.Screen name="sign-in" />
+      <StatusBar barStyle="dark-content" backgroundColor="#f9fafb" />
+      <Stack.Screen name="welcome" options={{ headerShown: false }} />
+      <Stack.Screen name="register" options={{ headerShown: false }} />
+      <Stack.Screen name="sign-in" options={{ headerShown: false }} />
     </Stack>
   );
 };

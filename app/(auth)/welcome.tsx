@@ -4,7 +4,6 @@ import { Image, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Swiper from "react-native-swiper";
 
-// Custom Button Component
 const CustomButton = ({
   title,
   onPress,
