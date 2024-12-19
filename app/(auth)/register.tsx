@@ -31,7 +31,7 @@ const CustomInput = ({
   editable = true,
 }) => (
   <View className="mb-4">
-    <Text className="text-black font-bold text-sm mb-2">{label}</Text>
+    <Text className="text-black font-semibold text-sm mb-2 font-inter ">{label}</Text>
     <TextInput
       value={value}
       onChangeText={onChangeText}
@@ -39,7 +39,7 @@ const CustomInput = ({
       multiline={multiline}
       numberOfLines={multiline ? 4 : 1}
       editable={editable}
-      className={`w-full px-4 py-3 bg-white border border-gray-200 rounded-3xl font-medium
+      className={`w-full px-4 py-3 bg-white border border-gray-200 rounded-3xl font-medium font-inter
         ${!editable ? "bg-gray-50 text-gray-500" : ""} 
         ${multiline ? "h-32 py-4" : ""}`}
       placeholderTextColor="#9CA3AF"
@@ -348,13 +348,13 @@ const NewProfilePage = () => {
 
               {/* Location Input */}
               <View className="mb-4">
-                <Text className="text-black font-bold text-sm mb-2">Location</Text>
+                <Text className="text-black font-inter font-semibold text-sm mb-2">Location</Text>
                 <View className="flex-row items-center">
                   <TextInput
                     value={location}
                     onChangeText={setLocation}
                     placeholder="Enter your location"
-                    className="flex-1 px-4 py-3 bg-white border border-gray-200 rounded-3xl font-medium"
+                    className="flex-1 px-4 py-3 bg-white border border-gray-200 rounded-3xl font-medium font-inter"
                     placeholderTextColor="#9CA3AF"
                   />
                   <TouchableOpacity
@@ -389,7 +389,7 @@ const NewProfilePage = () => {
                   <ActivityIndicator color="white" className="mr-2" />
                 ) : (
                   <>
-                    <Text className="text-white font-medium text-lg">
+                    <Text className="text-white font-medium text-lg font-poppins">
                       Complete Setup
                     </Text>
                     <Ionicons

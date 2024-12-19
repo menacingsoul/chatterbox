@@ -2,6 +2,7 @@ import * as SecureStore from "expo-secure-store";
 import axios, { AxiosRequestConfig, AxiosResponse } from "axios";
 import Constants from "expo-constants";
 import { usePushToken } from "@/contexts/PushTokenContext";
+import {useAuth } from "@clerk/clerk-expo";
 
 interface DecodedToken {
   email: string;
@@ -119,18 +120,7 @@ export const getUserByToken = async (): Promise<DecodedToken | null> => {
     return null;
   }
 };
-/**
- * Example usage: Retrieve and log user info.
- */
-export const logUserInfo = async () => {
-  const user = await getUserByToken();
-  if (user) {
-    console.log("User email:", user.email);
-    console.log("User ID:", user.user_id);
-  } else {
-    console.log("No valid user info found.");
-  }
-};
+
 
 export const logout = async (redirectCallback?: () => void): Promise<void> => {
   try {

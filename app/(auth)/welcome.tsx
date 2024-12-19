@@ -66,7 +66,7 @@ export default function Welcome() {
           }}
           className="bg-stone-300 rounded-3xl px-4 py-2"
         >
-          <Text className="text-black text-md font-bold">Skip</Text>
+          <Text className="text-black text-md font-bold font-inter">Skip</Text>
         </TouchableOpacity>
       </View>
 
@@ -89,11 +89,11 @@ export default function Welcome() {
               resizeMode="contain"
             />
             <View className="flex flex-row items-center justify-center w-full mt-10">
-              <Text className="text-black text-3xl font-bold mx-10 text-center font">
+              <Text className="text-black text-3xl font-bold mx-10 text-center font-inter">
                 {item.title}
               </Text>
             </View>
-            <Text className="text-md font-semibold text-center text-gray-500/90 mx-10 mt-3">
+            <Text className="text-md font-semibold text-center text-gray-500/90 mx-10 mt-3 font-inter">
               {item.description}
             </Text>
           </View>

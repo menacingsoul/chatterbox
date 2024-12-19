@@ -53,10 +53,12 @@ const SignInScreen = () => {
   return (
     <View className="flex-1 items-center justify-center bg-white p-5">
       <Image source={logo} className="w-full h-[300px]" resizeMode="contain" />
-      <Text className="text-3xl font-bold text-indigo-700 mb-2">
+      <Text
+        className="text-3xl font-semibold font-poppins text-indigo-700 mb-2"
+      >
         Welcome to ChatterBox
       </Text>
-      <Text className="text-md text-gray-600 text-center mb-8">
+      <Text className="text-md font-inter text-gray-600 text-center mb-8">
         Connect with friends and chat in real-time!
       </Text>
 
@@ -65,7 +67,7 @@ const SignInScreen = () => {
         onPress={onPress}
       >
         <AntDesign name="google" size={24} color="white" />
-        <Text className="text-white text-lg font-semibold ml-2">
+        <Text className="text-white font-poppins text-lg font-semibold ml-2">
           Continue with Google
         </Text>
       </TouchableOpacity>

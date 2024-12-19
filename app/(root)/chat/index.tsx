@@ -10,19 +10,10 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { getUserByToken } from "@/lib/auth";
 
 const AllChatsScreen = async () => {
   const [searchQuery, setSearchQuery] = useState("");
   const router = useRouter();
-  // const user = await getUserByToken();
-  // if (user) {
-  //   console.log("User email:", user.email);
-  //   console.log("User ID:", user.user_id);
-  // } else {
-  //   console.log("No valid user info found.");
-  // }
-  // // Dummy data for chats
   const chats = [
     {
       id: "1",

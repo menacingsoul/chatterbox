@@ -13,6 +13,7 @@ import * as SplashScreen from "expo-splash-screen";
 import { UserProvider } from "@/contexts/UserContext";
 import { PushTokenProvider } from "@/contexts/PushTokenContext";
 import ChatterBoxHeader from "@/components/AppHeader";
+import NotificationHandler from "@/components/NotificationHandler";
 
 const TabBar = () => {
   const router = useRouter();
@@ -113,6 +114,7 @@ const Layout = () => {
   return (
     <UserProvider>
       <PushTokenProvider>
+        <NotificationHandler />
         <View style={{ flex: 1 }}>
           <StatusBar barStyle="dark-content" backgroundColor="#f9fafb" />
 
@@ -123,6 +125,7 @@ const Layout = () => {
             <Stack.Screen name="explore" options={{ headerShown: false }} />
             <Stack.Screen name="requests" options={{ headerShown: false }} />
             <Stack.Screen name="profile" options={{ headerShown: false }} />
+            <Stack.Screen name="friends" options={{ headerShown: false }} />
           </Stack>
 
           {!pathname.includes("chat/") && <TabBar />}

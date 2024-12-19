@@ -7,20 +7,21 @@ import {
   TextInput,
   Image,
   SafeAreaView,
+  ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import axios from "axios";
 import { useUser } from "@/contexts/UserContext";
+import Loader from "@/components/Loader";
 
 const ExploreScreen = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true); // Loading state
   const { user } = useUser();  // State for the decoded user
   const router = useRouter();
 
-  // Fetch user info once on component mount
-  
   // Fetch users from backend with friendship statuses
   const fetchUsers = async () => {
     if (!user) return; // Don't fetch users if user info is not available
@@ -34,6 +35,8 @@ const ExploreScreen = () => {
       // Assuming response contains an array of users with friendship statuses
     } catch (error) {
       console.error("Error fetching users:", error);
+    } finally {
+      setLoading(false); // Set loading to false after fetching
     }
   };
 
@@ -70,7 +73,7 @@ const ExploreScreen = () => {
         onPress={() =>
           router.push({
             pathname: `/profile/${item._id}`,
-            params: { friendshipStatus: item.friendshipStatus,userId:user.id },
+            params: { friendshipStatus: item.friendshipStatus, userId: user.id },
           })
         }
       >
@@ -88,7 +91,7 @@ const ExploreScreen = () => {
           </Text>
         </View>
       </TouchableOpacity>
-  
+
       {item.friendshipStatus === "Add Friend" && (
         <TouchableOpacity
           className="px-4 py-2 rounded-full bg-indigo-400"
@@ -97,7 +100,7 @@ const ExploreScreen = () => {
           <Text className="text-white">Add Friend</Text>
         </TouchableOpacity>
       )}
-  
+
       {item.friendshipStatus === "Pending" && (
         <TouchableOpacity
           className="px-4 py-2 rounded-full bg-gray-200"
@@ -106,7 +109,7 @@ const ExploreScreen = () => {
           <Text className="text-gray-600">Pending</Text>
         </TouchableOpacity>
       )}
-  
+
       {item.friendshipStatus === "View Request" && (
         <TouchableOpacity
           className="px-4 py-2 rounded-full bg-black"
@@ -115,7 +118,7 @@ const ExploreScreen = () => {
           <Text className="text-white">View Request</Text>
         </TouchableOpacity>
       )}
-  
+
       {item.friendshipStatus === "Friends" && (
         <TouchableOpacity
           className="px-4 py-2 rounded-full bg-gray-200"
@@ -126,12 +129,12 @@ const ExploreScreen = () => {
       )}
     </View>
   );
-  
+
   // Show loading spinner or empty state when no user is available
-  if (!user) {
+  if (!user || loading) {
     return (
       <SafeAreaView className="flex-1 justify-center items-center bg-white">
-        <Text>Loading...</Text>
+        <Loader/>
       </SafeAreaView>
     );
   }

@@ -11,6 +11,7 @@ import { Ionicons } from "@expo/vector-icons";
 import axios from "axios";
 import { useRouter } from "expo-router";
 import { useUser } from "@/contexts/UserContext";
+import Loader from "@/components/Loader";
 
 const FriendRequestsScreen = () => {
   const [friendRequests, setFriendRequests] = useState([]);
@@ -50,8 +51,8 @@ const FriendRequestsScreen = () => {
       );
 
       if (response.status === 200) {
-        console.log(response.data.message); // Log success message from API
-        fetchFriendRequests(); // Refresh the list after successful API call
+        console.log(response.data.message); 
+        fetchFriendRequests(); 
       } else {
         console.error("Unexpected API response:", response);
       }
@@ -133,7 +134,7 @@ const FriendRequestsScreen = () => {
   if (isLoading) {
     return (
       <View className="flex-1 justify-center items-center bg-white">
-        <Text className="text-indigo-400 text-lg">Loading requests...</Text>
+        <Loader/>
       </View>
     );
   }

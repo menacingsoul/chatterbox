@@ -1,11 +1,16 @@
-// Rest of the import statements
-import { ClerkProvider, ClerkLoaded } from "@clerk/clerk-expo";
-import { Inter_900Black, useFonts } from "@expo-google-fonts/inter";
+// app/_layout.tsx
+import React, { useEffect } from "react";
 import { Stack } from "expo-router";
-import * as SplashScreen from "expo-splash-screen";
-import "../global.css";
+import {
+  useFonts,
+  Inter_400Regular,
+  Inter_700Bold,
 
-import { useEffect } from "react";
+} from "@expo-google-fonts/inter";
+import {Poppins_400Regular, Poppins_700Bold, Poppins_800ExtraBold, Poppins_600SemiBold} from "@expo-google-fonts/poppins";
+import * as SplashScreen from "expo-splash-screen";
+import { ClerkProvider, ClerkLoaded } from "@clerk/clerk-expo";
+import "../global.css";
 
 SplashScreen.preventAutoHideAsync();
 const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!;
@@ -17,18 +22,24 @@ if (!publishableKey) {
 }
 
 export default function RootLayout() {
-  const [loaded, error] = useFonts({
-    Inter_900Black,
+  const [fontsLoaded] = useFonts({
+    Inter_400Regular,
+    Inter_700Bold,
+    Poppins_400Regular,
+    Poppins_700Bold,
+    Poppins_800ExtraBold,
+    Poppins_600SemiBold
   });
 
   useEffect(() => {
-    if (loaded || error) {
+    if (fontsLoaded) {
       SplashScreen.hideAsync();
+      console.log("Fonts loaded");
     }
-  }, [loaded, error]);
+  }, [fontsLoaded]);
 
-  if (!loaded && !error) {
-    return null;
+  if (!fontsLoaded) {
+    return null; // Prevent rendering until fonts are loaded
   }
 
   return (

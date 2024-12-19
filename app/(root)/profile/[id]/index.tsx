@@ -8,8 +8,10 @@ import {
   UsersRound,
   Clock,
   FileClock,
+  ArrowLeft,
 } from "lucide-react-native";
 import ImageModalViewer from "@/components/ImageModalViewer";
+import Loader from "@/components/Loader";
 
 const UserProfile = () => {
   const { id, friendshipStatus, userId } = useGlobalSearchParams();
@@ -37,7 +39,7 @@ const UserProfile = () => {
   if (!user) {
     return (
       <View className="flex-1 justify-center items-center bg-white">
-        <Text className="text-indigo-400 text-lg">Loading profile...</Text>
+        <Loader/>
       </View>
     );
   }
@@ -65,8 +67,18 @@ const UserProfile = () => {
   return (
     <ScrollView className="flex-1 bg-gray-50">
       {/* Header Section */}
+
       <View className="relative">
-        <View className="h-56 bg-gradient-to-br from-indigo-200 to-indigo-300 absolute top-0 left-0 right-0" />
+        <View className="h-56 bg-white absolute top-0 left-0 right-0" />
+        <View className="flex-row items-center p-4 border-b border-gray-100">
+          <TouchableOpacity onPress={() => router.back()} className="mr-4">
+            <ArrowLeft size={24} color="#6366f1" />
+          </TouchableOpacity>
+
+          <Text className="text-2xl font-inter font-semibold text-indigo-500 flex-1">
+            Profile
+          </Text>
+        </View>
         <View className="items-center mt-24 px-6">
           <View className="bg-white rounded-2xl shadow-lg p-6 w-full">
             <View className="items-center -mt-20">
@@ -82,7 +94,7 @@ const UserProfile = () => {
                 imageUri={user?.image}
               />
               <View className="mt-4 items-center">
-                <Text className="text-2xl font-bold text-gray-800">
+                <Text className="text-2xl font-semibold font-inter text-gray-800">
                   {user.firstName} {user.lastName}
                 </Text>
               </View>
@@ -94,16 +106,16 @@ const UserProfile = () => {
       {/* About Section */}
       <View className="px-6 mt-6">
         <View className="bg-white rounded-2xl p-6 shadow-md mb-6">
-          <Text className="text-xl font-bold text-gray-800 mb-4">About Me</Text>
-          <Text className="text-gray-700 text-lg font-medium ">{user.bio}</Text>
+          <Text className="text-xl font-semibold text-gray-800 mb-4 font-poppins">About Me</Text>
+          <Text className="text-gray-700 text-lg font-medium font-inter ">{user.bio}</Text>
         </View>
 
         {/* Contact Information */}
         <View className="bg-white rounded-2xl p-6 shadow-md mb-6">
-          <Text className="text-xl font-bold text-gray-800 mb-4">More</Text>
+          <Text className="text-xl font-semibold text-gray-800 mb-4 font-poppins">More</Text>
           <View className="flex-row items-center gap-1">
             <MapPin size={24} color="#6366f1" />
-            <Text className="text-gray-700 text-lg font-medium">
+            <Text className="text-gray-700 text-lg font-medium font-inter">
               {user.location}
             </Text>
           </View>
@@ -126,7 +138,7 @@ const UserProfile = () => {
               className="flex-1 bg-gray-200 py-4 rounded-xl flex-row items-center gap-2 justify-center"
               disabled={true}
             >
-              <Text className="text-gray-600 font-bold">Pending</Text>
+              <Text className="text-gray-600 font-semibold font-poppins">Pending</Text>
               <Clock size={20} color="gray" />
             </TouchableOpacity>
           )}
@@ -136,7 +148,7 @@ const UserProfile = () => {
               className="flex-1 bg-black py-4 rounded-xl flex-row items-center gap-2 justify-center"
               onPress={handleButtonPress}
             >
-              <Text className="text-white font-bold">View Request</Text>
+              <Text className="text-white font-semibold font-poppins">View Request</Text>
               <FileClock size={20} color="white" />
             </TouchableOpacity>
           )}
@@ -146,7 +158,7 @@ const UserProfile = () => {
               className="flex-1 bg-indigo-300 py-4 rounded-xl flex-row items-center gap-2 justify-center"
               disabled={true}
             >
-              <Text className="text-white font-bold">Friends</Text>
+              <Text className="text-white font-semibold font-poppins">Friends</Text>
               <UsersRound size={20} color="white" />
             </TouchableOpacity>
           )}
