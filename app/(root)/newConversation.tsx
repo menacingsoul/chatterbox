@@ -12,9 +12,10 @@ import { useRouter } from "expo-router";
 import axios from "axios";
 import { useUser } from "@/contexts/UserContext";
 import FriendCard from "@/components/FriendCard";
-import Loader from "@/components/Loader"; // Import your Loader component
+import Loader from "@/components/Loader"; 
+import NewConversationCard from "@/components/NewConversationCard";
 
-const FriendsScreen = () => {
+const NewConversationScreen = () => {
   const router = useRouter();
   const { user } = useUser();
   const [friends, setFriends] = useState([]);
@@ -85,12 +86,12 @@ const FriendsScreen = () => {
 
   // Render friend item
   const renderFriendCard = ({ item }) => (
-    <FriendCard
+    <NewConversationCard
       firstName={item.firstName}
       lastName={item.lastName}
       imageUri={item.image}
-      onView={() => router.push(`/profile/${item._id}`)}
-      onRemove={() => handleRemoveFriend(item._id)}
+      onChat={() => router.push(`/profile/${item._id}`)}
+      
     />
   );
 
@@ -118,8 +119,8 @@ const FriendsScreen = () => {
           <ArrowLeft size={24} color="#6366f1" />
         </TouchableOpacity>
 
-        <Text className="text-2xl font-interbold text-indigo-500 flex-1">
-          Friends
+        <Text className="text-2xl font-semibold font-inter text-indigo-500 flex-1">
+          New Conversation
         </Text>
       </View>
 
@@ -153,4 +154,4 @@ const FriendsScreen = () => {
   );
 };
 
-export default FriendsScreen;
+export default NewConversationScreen;

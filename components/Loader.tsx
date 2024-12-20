@@ -10,20 +10,20 @@ const Loader: React.FC = () => {
       Animated.sequence([
         Animated.parallel([
           Animated.timing(scaleValue, {
-            toValue: 1.5,
-            duration: 500,
+            toValue: 1.4,
+            duration: 600,
             useNativeDriver: true,
           }),
           Animated.timing(opacityValue, {
-            toValue: 0.5,
-            duration: 500,
+            toValue: 0.6,
+            duration: 600,
             useNativeDriver: true,
           }),
         ]),
         Animated.parallel([
           Animated.timing(scaleValue, {
-            toValue: 1,
-            duration: 500,
+            toValue: 1.2,
+            duration: 600,
             useNativeDriver: true,
           }),
           Animated.timing(opacityValue, {

@@ -75,7 +75,7 @@ const UserProfile = () => {
             <ArrowLeft size={24} color="#6366f1" />
           </TouchableOpacity>
 
-          <Text className="text-2xl font-inter font-semibold text-indigo-500 flex-1">
+          <Text className="text-2xl font-intersemibold text-indigo-500 flex-1">
             Profile
           </Text>
         </View>
@@ -94,7 +94,7 @@ const UserProfile = () => {
                 imageUri={user?.image}
               />
               <View className="mt-4 items-center">
-                <Text className="text-2xl font-semibold font-inter text-gray-800">
+                <Text className="text-2xl font-poppinssemibold text-gray-800">
                   {user.firstName} {user.lastName}
                 </Text>
               </View>
@@ -106,8 +106,8 @@ const UserProfile = () => {
       {/* About Section */}
       <View className="px-6 mt-6">
         <View className="bg-white rounded-2xl p-6 shadow-md mb-6">
-          <Text className="text-xl font-semibold text-gray-800 mb-4 font-poppins">About Me</Text>
-          <Text className="text-gray-700 text-lg font-medium font-inter ">{user.bio}</Text>
+          <Text className="text-xl font-intersemibold text-gray-800 mb-4 font-poppins">About Me</Text>
+          <Text className="text-gray-700 text-lg font-intermedium ">{user.bio}</Text>
         </View>
 
         {/* Contact Information */}
@@ -115,7 +115,7 @@ const UserProfile = () => {
           <Text className="text-xl font-semibold text-gray-800 mb-4 font-poppins">More</Text>
           <View className="flex-row items-center gap-1">
             <MapPin size={24} color="#6366f1" />
-            <Text className="text-gray-700 text-lg font-medium font-inter">
+            <Text className="text-gray-700 text-lg font-intermedium">
               {user.location}
             </Text>
           </View>
@@ -128,7 +128,7 @@ const UserProfile = () => {
               className="flex-1 bg-indigo-500 py-4 rounded-xl flex-row items-center gap-2 justify-center"
               onPress={handleButtonPress}
             >
-              <Text className="text-white font-bold mr-2">Add Friend</Text>
+              <Text className="text-white font-interbold mr-2">Add Friend</Text>
               <Plus size={20} color="white" />
             </TouchableOpacity>
           )}
@@ -138,7 +138,7 @@ const UserProfile = () => {
               className="flex-1 bg-gray-200 py-4 rounded-xl flex-row items-center gap-2 justify-center"
               disabled={true}
             >
-              <Text className="text-gray-600 font-semibold font-poppins">Pending</Text>
+              <Text className="text-gray-600 font-interbold">Pending</Text>
               <Clock size={20} color="gray" />
             </TouchableOpacity>
           )}
@@ -148,7 +148,7 @@ const UserProfile = () => {
               className="flex-1 bg-black py-4 rounded-xl flex-row items-center gap-2 justify-center"
               onPress={handleButtonPress}
             >
-              <Text className="text-white font-semibold font-poppins">View Request</Text>
+              <Text className="text-white font-interbold">View Request</Text>
               <FileClock size={20} color="white" />
             </TouchableOpacity>
           )}
@@ -158,7 +158,7 @@ const UserProfile = () => {
               className="flex-1 bg-indigo-300 py-4 rounded-xl flex-row items-center gap-2 justify-center"
               disabled={true}
             >
-              <Text className="text-white font-semibold font-poppins">Friends</Text>
+              <Text className="text-white font-interbold">Friends</Text>
               <UsersRound size={20} color="white" />
             </TouchableOpacity>
           )}

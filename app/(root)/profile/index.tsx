@@ -17,6 +17,7 @@ import { useUser } from "@/contexts/UserContext";
 import { usePushToken } from "@/contexts/PushTokenContext";
 import FriendCard from "@/components/FriendCard";
 import Loader from "@/components/Loader";
+import ImageModalViewer from "@/components/ImageModalViewer";
 
 const TAB_BAR_HEIGHT = 64; // Height of the tab bar from your layout
 
@@ -24,7 +25,8 @@ const ProfileScreen = () => {
   const { user } = useUser();
   const [userData, setUserData] = useState(null);
   const [friends, setFriends] = useState([]);
-  const[loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [imageModalVisible, setImageModalVisible] = useState(false);
   const router = useRouter();
   const { clearPushToken } = usePushToken();
 
@@ -58,7 +60,7 @@ const ProfileScreen = () => {
           setFriends(friendsResponse.data.slice(0, 3)); // Limit to 3 friends
         } catch (error) {
           console.error("Error fetching data:", error);
-        }finally{
+        } finally {
           setLoading(false);
         }
       };
@@ -97,11 +99,19 @@ const ProfileScreen = () => {
         <View className="px-4 pb-4">
           {/* Avatar */}
           <View className="relative -mt-16 mb-4">
-            <Image
-              source={{ uri: userData?.image }}
-              className="w-32 h-32 rounded-full border-4 border-white"
-            />
+            <TouchableOpacity onPress={() => setImageModalVisible(true)} activeOpacity={0.9}>
+              <Image
+                source={{ uri: userData?.image }}
+                className="w-32 h-32 rounded-full border-4 border-white"
+              />
+            </TouchableOpacity>
           </View>
+
+          <ImageModalViewer
+            visible={imageModalVisible}
+            onClose={() => setImageModalVisible(false)}
+            imageUri={userData?.image}
+          />
 
           {/* User Info */}
           <View className="mb-6 gap-2">
@@ -113,28 +123,28 @@ const ProfileScreen = () => {
               <View className="p-2 rounded-full mr-2">
                 <MailIcon size={24} color="#6366f1" />
               </View>
-              <Text className="text-lg font-inter">{userData.email}</Text>
+              <Text className="text-lg font-intermedium">{userData.email}</Text>
             </View>
 
             <View className="flex-row items-center">
               <View className="p-2 rounded-full mr-2">
                 <InfoIcon size={24} color="#6366f1" />
               </View>
-              <Text className="text-lg font-inter">{userData.bio}</Text>
+              <Text className="text-lg font-intermedium">{userData.bio}</Text>
             </View>
 
             <View className="flex-row items-center">
               <View className="p-2 rounded-full mr-2">
                 <MapPin size={24} color="#6366f1" />
               </View>
-              <Text className="text-lg font-inter">{userData.location}</Text>
+              <Text className="text-lg font-intermedium">{userData.location}</Text>
             </View>
           </View>
 
           {/* Action Buttons */}
           <View className="flex-row space-x-4 gap-1 mb-6">
             <TouchableOpacity className="flex-1 bg-black py-3 rounded-full">
-              <Text className="text-white text-center font-poppinssemibold">
+              <Text className="text-white text-center font-intersemibold">
                 Edit Profile
               </Text>
             </TouchableOpacity>
@@ -143,7 +153,7 @@ const ProfileScreen = () => {
               className="flex-1 bg-red-500 py-3 rounded-full"
             >
               <View className="flex-row items-center justify-center">
-                <Text className="text-white text-center  mr-2 font-poppinssemibold">
+                <Text className="text-white text-center  mr-2 font-intersemibold">
                   Logout
                 </Text>
                 <MaterialIcons name="logout" size={18} color="white" />
@@ -163,7 +173,7 @@ const ProfileScreen = () => {
                   My Friends
                 </Text>
               </View>
-              <Text className="text-indigo-500 font-inter">See All</Text>
+              <Text className="text-indigo-500 font-intermedium">See All</Text>
             </TouchableOpacity>
 
             {friends.length === 0 ? (

@@ -7,6 +7,7 @@ module.exports = {
       fontFamily: {
         inter: ["Inter_400Regular"],
         interbold: ["Inter_700Bold"],
+        intermedium: ["Inter_500Medium"],
         intersemibold: ["Inter_600SemiBold"],
         poppinssemibold: ["Poppins_600SemiBold"],
         poppinsregular: ["Poppins_400Regular"],

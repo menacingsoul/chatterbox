@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -7,101 +7,136 @@ import {
   TextInput,
   Image,
   SafeAreaView,
+  ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import axios from "axios";
+import { useUser } from "@/contexts/UserContext";
+import Loader from "@/components/Loader";
+import { PlusIcon } from "lucide-react-native";
 
-const AllChatsScreen = async () => {
+const AllChatsScreen = () => {
   const [searchQuery, setSearchQuery] = useState("");
+  const [chats, setChats] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const router = useRouter();
-  const chats = [
-    {
-      id: "1",
-      name: "John Doe",
-      lastMessage: "Hey, how are you doing?",
-      time: "09:41 AM",
-      unreadCount: 2,
-      avatar: "https://via.placeholder.com/50",
-      online: true,
-    },
-    {
-      id: "2",
-      name: "Sarah Smith",
-      lastMessage: "The meeting is scheduled for tomorrow",
-      time: "Yesterday",
-      unreadCount: 0,
-      avatar: "https://via.placeholder.com/50",
-      online: false,
-    },
-    {
-      id: "3",
-      name: "Dev Team",
-      lastMessage: "Mike: The new update is ready for testing 🚀",
-      time: "Yesterday",
-      unreadCount: 5,
-      avatar: "https://via.placeholder.com/50",
-      online: true,
-    },
-    {
-      id: "4",
-      name: "Alice Johnson",
-      lastMessage: "Thanks for your help!",
-      time: "Mon",
-      unreadCount: 0,
-      avatar: "https://via.placeholder.com/50",
-      online: false,
-    },
-  ];
+  const { user } = useUser();
 
-  const filteredChats = chats.filter(
-    (chat) =>
-      chat.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      chat.lastMessage.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  useEffect(() => {
+    if (user) {
+      fetchChats();
+    }
+  }, [user]);
 
-  const renderChatItem = ({ item }) => (
-    <TouchableOpacity
-      className="flex-row items-center p-4 border-b border-gray-100"
-      onPress={() => router.push(`/(root)/chat/${item.id}`)}
-    >
-      {/* Avatar with online indicator */}
-      <View className="relative">
-        <Image
-          source={{ uri: item.avatar }}
-          className="w-14 h-14 rounded-full"
-        />
-        {item.online && (
-          <View className="absolute right-0 bottom-0 w-4 h-4 bg-green-500 rounded-full border-2 border-white" />
-        )}
-      </View>
+  console.log("backend: ", process.env.EXPO_PUBLIC_BACKEND_URL);
+  console.log("user: ", user?.id || "User is null or undefined");
 
-      {/* Chat details */}
-      <View className="flex-1 ml-4">
-        <View className="flex-row justify-between items-center">
-          <Text className="font-semibold text-lg">{item.name}</Text>
-          <Text className="text-gray-500 text-sm">{item.time}</Text>
-        </View>
+  const fetchChats = async () => {
+    if (!user) {
+      console.warn("User is not defined, skipping fetchChats");
+      return;
+    }
 
-        <View className="flex-row justify-between items-center mt-1">
-          <Text className="text-gray-600 flex-1 mr-4" numberOfLines={1}>
-            {item.lastMessage}
-          </Text>
-          {item.unreadCount > 0 && (
-            <View className="bg-indigo-400 rounded-full min-w-[20px] h-5 flex items-center justify-center px-1">
-              <Text className="text-white text-xs">{item.unreadCount}</Text>
-            </View>
-          )}
-        </View>
-      </View>
-    </TouchableOpacity>
-  );
+    try {
+      const response = await axios.get(
+        `${process.env.EXPO_PUBLIC_BACKEND_URL}/api/chats/getChats`,
+        { params: { userId: user.id } }
+      );
+      setChats(response.data);
+      setLoading(false);
+    } catch (err) {
+      setError("Failed to load chats");
+      setLoading(false);
+      console.error("Error fetching chats:", err);
+    }
+  };
+
+  // Get other participant from the chat
+  const getOtherParticipant = (participants) => {
+    return participants.find((p) => p._id !== user.id) || participants[0];
+  };
   
+
+  const filteredChats = chats.filter((chat) => {
+    const otherParticipant = getOtherParticipant(chat.participants);
+    const fullName =
+      `${otherParticipant.firstName} ${otherParticipant.lastName}`.toLowerCase();
+    const searchLower = searchQuery.toLowerCase();
+
+    return (
+      fullName.includes(searchLower) ||
+      (chat.lastMessage.message &&
+        chat.lastMessage.message.toLowerCase().includes(searchLower))
+    );
+  });
+
+  const renderChatItem = ({ item }) => {
+    const otherParticipant = getOtherParticipant(item.participants);
+
+    return (
+      <TouchableOpacity
+        className="flex-row items-center p-4 border-b border-gray-100"
+        onPress={() => router.push(`/(root)/chat/${item._id}`)}
+      >
+        {/* Avatar with online indicator */}
+        <View className="relative">
+          <Image
+            source={{ uri: otherParticipant.image }}
+            className="w-14 h-14 rounded-full"
+          />
+        </View>
+
+        {/* Chat details */}
+        <View className="flex-1 ml-4">
+          <View className="flex-row justify-between items-center">
+            <Text className="font-semibold font-poppinssemibold text-lg">
+              {`${otherParticipant.firstName} ${otherParticipant.lastName}`}
+            </Text>
+            <Text className="text-gray-500 text-sm font-inter">
+              {new Date(item.lastMessage.timeStamp).toLocaleDateString()}
+            </Text>
+          </View>
+
+          <View className="flex-row justify-between items-center mt-1">
+            <Text
+              className="text-gray-600 flex-1 mr-4 font-inter"
+              numberOfLines={1}
+            >
+              {item.lastMessage.message}
+            </Text>
+            {/* Add unread count here if you add it to your API */}
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  if (loading) {
+    return <Loader />;
+  }
+
+  if (error) {
+    return (
+      <View className="flex-1 justify-center items-center">
+        <Text className="text-red-500 font-poppinsregular">{error}</Text>
+        <TouchableOpacity
+          className="mt-4 bg-indigo-500 px-4 py-2 rounded-full"
+          onPress={fetchChats}
+        >
+          <Text className="text-white font-inter">Retry</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   return (
     <SafeAreaView className="flex-1 bg-white">
       {/* Header */}
       <View className="p-4 border-b border-gray-200">
         <View className="flex-row justify-between items-center mb-4">
-          <Text className="text-2xl font-bold">Chats</Text>
+          <Text className="text-2xl font-interbold">Chats</Text>
           <View className="flex-row space-x-4">
             <TouchableOpacity>
               <Ionicons name="camera-outline" size={24} color="black" />
@@ -128,20 +163,19 @@ const AllChatsScreen = async () => {
       <FlatList
         data={filteredChats}
         renderItem={renderChatItem}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => item._id}
         className="flex-1"
       />
 
       {/* Floating Action Button */}
       <TouchableOpacity
-        className="absolute bottom-6 right-6 bg-indigo-400 w-14 h-14 rounded-full items-center justify-center shadow-lg"
-        onPress={() => router.push("(root)/new-chat")}
+        className="absolute bottom-10 right-6 bg-indigo-400 w-14 h-14 rounded-full items-center justify-center shadow-lg"
+        onPress={() => router.push("/(root)/newConversation")}
       >
-        <Ionicons name="chatbubble-outline" size={24} color="white" />
+        <PlusIcon size={24} color="white" />
       </TouchableOpacity>
     </SafeAreaView>
   );
- 
 };
 
 export default AllChatsScreen;
