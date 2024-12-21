@@ -35,9 +35,22 @@ export default {
     plugins: [
       "expo-router",
       "expo-font",
+      "expo-camera",
       "expo-secure-store",
       "expo-notifications",
     ],
+    build: {
+      preview: {
+        android: {
+          buildType: "apk",
+        },
+      },
+      production: {
+        android: {
+          buildType: "apk",
+        },
+      },
+    },
     experiments: {
       typedRoutes: true,
     },

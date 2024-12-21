@@ -134,7 +134,6 @@ const TabBar = () => {
   );
 };
 
-
 const Layout = () => {
   const pathname = usePathname();
   const [fontsLoaded] = useFonts({ Inter_400Regular, Inter_700Bold });
@@ -165,15 +164,17 @@ const Layout = () => {
               <Stack.Screen name="requests" options={{ headerShown: false }} />
               <Stack.Screen name="profile" options={{ headerShown: false }} />
               <Stack.Screen name="friends" options={{ headerShown: false }} />
+              <Stack.Screen name="camera" options={{ headerShown: false }} />
               <Stack.Screen
                 name="newConversation"
                 options={{ headerShown: false }}
               />
             </Stack>
-            <View className=" bg-white h-20">
-            {!pathname.includes("chat/") && <TabBar />}
-            </View>
-
+            {!pathname.includes("chat/") && (
+              <View className=" bg-white h-20">
+                <TabBar />
+              </View>
+            )}
           </View>
         </RequestsProvider>
       </PushTokenProvider>

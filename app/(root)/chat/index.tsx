@@ -10,16 +10,19 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import axios from "axios";
 import { useUser } from "@/contexts/UserContext";
 import Loader from "@/components/Loader";
-import { PlusIcon } from "lucide-react-native";
+import { PlusIcon, CheckCircle2, SendIcon, SendHorizonalIcon } from "lucide-react-native";
 
 const AllChatsScreen = () => {
+  const { imageUrl } = useLocalSearchParams();
+  const [isSending, setIsSending] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [chats, setChats] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selectedChat, setSelectedChat] = useState(null);
   const [error, setError] = useState(null);
   const router = useRouter();
   const { user } = useUser();
@@ -30,8 +33,31 @@ const AllChatsScreen = () => {
     }
   }, [user]);
 
-  console.log("backend: ", process.env.EXPO_PUBLIC_BACKEND_URL);
-  console.log("user: ", user?.id || "User is null or undefined");
+  const sendImage = async () => {
+    if (!imageUrl || !selectedChat) return;
+
+    setIsSending(true);
+    try {
+      await axios.post(
+        `${process.env.EXPO_PUBLIC_BACKEND_URL}/api/chats/sendMessage`,
+        {
+          chatId: selectedChat,
+          senderId: user.id,
+          imageUrl,
+          messageType: "image",
+        }
+      );
+
+      await fetchChats();
+      router.setParams({ imageUrl: null });
+      router.push(`/chat/${selectedChat}`);
+    } catch (error) {
+      console.error("Error sending image:", error);
+    } finally {
+      setIsSending(false);
+      setSelectedChat(null);
+    }
+  };
 
   const fetchChats = async () => {
     if (!user) {
@@ -53,11 +79,9 @@ const AllChatsScreen = () => {
     }
   };
 
-  // Get other participant from the chat
   const getOtherParticipant = (participants) => {
     return participants.find((p) => p._id !== user.id) || participants[0];
   };
-  
 
   const filteredChats = chats.filter((chat) => {
     const otherParticipant = getOtherParticipant(chat.participants);
@@ -74,21 +98,39 @@ const AllChatsScreen = () => {
 
   const renderChatItem = ({ item }) => {
     const otherParticipant = getOtherParticipant(item.participants);
+    const isSelected = selectedChat === item._id;
 
     return (
       <TouchableOpacity
-        className="flex-row items-center p-4 border-b border-gray-100"
-        onPress={() => router.push(`/(root)/chat/${item._id}`)}
+        className={`flex-row items-center p-4 border-b border-gray-100 ${
+          isSelected ? "bg-indigo-50" : ""
+        }`}
+        onPress={() => {
+          if (imageUrl) {
+            setSelectedChat(isSelected ? null : item._id);
+          } else {
+            router.push(`/chat/${item._id}`);
+          }
+        }}
+        disabled={isSending}
       >
-        {/* Avatar with online indicator */}
         <View className="relative">
           <Image
             source={{ uri: otherParticipant.image }}
             className="w-14 h-14 rounded-full"
           />
+          {isSending && item._id === selectedChat && (
+            <View className="absolute inset-0 bg-black/30 rounded-full items-center justify-center">
+              <ActivityIndicator color="white" />
+            </View>
+          )}
+          {isSelected && (
+            <View className="absolute -right-1 -bottom-1">
+              <CheckCircle2 size={24} color="#4F46E5" fill="white" />
+            </View>
+          )}
         </View>
 
-        {/* Chat details */}
         <View className="flex-1 ml-4">
           <View className="flex-row justify-between items-center">
             <Text className="font-semibold font-poppinssemibold text-lg">
@@ -106,7 +148,6 @@ const AllChatsScreen = () => {
             >
               {item.lastMessage.message}
             </Text>
-            {/* Add unread count here if you add it to your API */}
           </View>
         </View>
       </TouchableOpacity>
@@ -133,21 +174,32 @@ const AllChatsScreen = () => {
 
   return (
     <SafeAreaView className="flex-1 bg-white">
-      {/* Header */}
+      {imageUrl && (
+        <View className="bg-indigo-50 p-2 gap-2 justify-evenly items-center flex-row">
+          <Text className="text-center text-indigo-600 font-poppinsmedium text-lg mb-2">
+            Select a chat to send your image
+          </Text>
+          <Image
+            source={{ uri: imageUrl }}
+            className="w-20 h-20 rounded-lg self-center"
+            resizeMode="cover"
+          />
+        </View>
+      )}
+
       <View className="p-4 border-b border-gray-200">
         <View className="flex-row justify-between items-center mb-4">
           <Text className="text-2xl font-interbold">Chats</Text>
-          <View className="flex-row space-x-4">
-            <TouchableOpacity>
-              <Ionicons name="camera-outline" size={24} color="black" />
-            </TouchableOpacity>
-            <TouchableOpacity>
-              <Ionicons name="create-outline" size={24} color="black" />
+          <View className="flex-row">
+            <TouchableOpacity
+              onPress={() => router.push("/(root)/camera")}
+              className="bg-indigo-600 p-1.5 rounded-full"
+            >
+              <Ionicons name="camera" size={24} color="white" />
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* Search Bar */}
         <View className="flex-row items-center bg-gray-100 rounded-full px-4 py-2">
           <Ionicons name="search-outline" size={20} color="gray" />
           <TextInput
@@ -159,7 +211,6 @@ const AllChatsScreen = () => {
         </View>
       </View>
 
-      {/* Chats List */}
       <FlatList
         data={filteredChats}
         renderItem={renderChatItem}
@@ -167,13 +218,28 @@ const AllChatsScreen = () => {
         className="flex-1"
       />
 
-      {/* Floating Action Button */}
-      <TouchableOpacity
-        className="absolute bottom-10 right-6 bg-indigo-400 w-14 h-14 rounded-full items-center justify-center shadow-lg"
-        onPress={() => router.push("/(root)/newConversation")}
-      >
-        <PlusIcon size={24} color="white" />
-      </TouchableOpacity>
+      {imageUrl && selectedChat ? (
+        <TouchableOpacity
+          className="absolute bottom-10 right-6 bg-indigo-600 w-14 h-14 rounded-full items-center justify-center shadow-lg"
+          onPress={sendImage}
+          disabled={isSending}
+        >
+          {isSending ? (
+            <ActivityIndicator color="white" />
+          ) : (
+            <SendHorizonalIcon size={24} color="white" />
+          )}
+        </TouchableOpacity>
+      ) : (
+        !imageUrl && (
+          <TouchableOpacity
+            className="absolute bottom-10 right-6 bg-indigo-600 w-14 h-14 rounded-full items-center justify-center shadow-lg"
+            onPress={() => router.push("/(root)/newConversation")}
+          >
+            <PlusIcon size={24} color="white" />
+          </TouchableOpacity>
+        )
+      )}
     </SafeAreaView>
   );
 };
