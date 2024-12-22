@@ -12,9 +12,18 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import axios from "axios";
+import CryptoJS from "react-native-crypto-js";
 import { useUser } from "@/contexts/UserContext";
 import Loader from "@/components/Loader";
-import { PlusIcon, CheckCircle2, SendIcon, SendHorizonalIcon } from "lucide-react-native";
+import {
+  PlusIcon,
+  CheckCircle2,
+  SendIcon,
+  SendHorizonalIcon,
+  CameraIcon,
+  Images,
+  GalleryHorizontal,
+} from "lucide-react-native";
 
 const AllChatsScreen = () => {
   const { imageUrl } = useLocalSearchParams();
@@ -26,6 +35,13 @@ const AllChatsScreen = () => {
   const [error, setError] = useState(null);
   const router = useRouter();
   const { user } = useUser();
+
+  const SECRET_KEY = process.env.EXPO_PUBLIC_SECRET_KEY;
+
+  const decryptMessage = (encryptedMessage) => {
+    const bytes = CryptoJS.AES.decrypt(encryptedMessage, SECRET_KEY);
+    return bytes.toString(CryptoJS.enc.Utf8);
+  };
 
   useEffect(() => {
     if (user) {
@@ -136,17 +152,24 @@ const AllChatsScreen = () => {
             <Text className="font-semibold font-poppinssemibold text-lg">
               {`${otherParticipant.firstName} ${otherParticipant.lastName}`}
             </Text>
-            <Text className="text-gray-500 text-sm font-inter">
+            <Text className="text-gray-500 text-sm font-poppinssemibold">
               {new Date(item.lastMessage.timeStamp).toLocaleDateString()}
             </Text>
           </View>
 
           <View className="flex-row justify-between items-center mt-1">
             <Text
-              className="text-gray-600 flex-1 mr-4 font-inter"
+              className="text-gray-600 flex-1 mr-4 font-intersemibold flex items-center gap-2"
               numberOfLines={1}
             >
-              {item.lastMessage.message}
+              {item.lastMessage.messageType === "image" ? (
+                <View className="flex-row items-center justify-center gap-1 ">
+                  <Images size={16} color={"#4b5563"} />
+                  <Text className=" font-intersemibold text-gray-600 ">Photo</Text>
+                </View>
+              ) : (
+                decryptMessage(item.lastMessage.message)
+              )}
             </Text>
           </View>
         </View>
@@ -176,7 +199,7 @@ const AllChatsScreen = () => {
     <SafeAreaView className="flex-1 bg-white">
       {imageUrl && (
         <View className="bg-indigo-50 p-2 gap-2 justify-evenly items-center flex-row">
-          <Text className="text-center text-indigo-600 font-poppinsmedium text-lg mb-2">
+          <Text className="text-center text-indigo-600 font-poppinssemibold text-lg mb-2">
             Select a chat to send your image
           </Text>
           <Image
@@ -203,7 +226,7 @@ const AllChatsScreen = () => {
         <View className="flex-row items-center bg-gray-100 rounded-full px-4 py-2">
           <Ionicons name="search-outline" size={20} color="gray" />
           <TextInput
-            className="flex-1 ml-2"
+            className="flex-1 ml-2 font-inter"
             placeholder="Search chats"
             value={searchQuery}
             onChangeText={setSearchQuery}

@@ -90,6 +90,8 @@ const NewConversationScreen = () => {
       firstName={item.firstName}
       lastName={item.lastName}
       imageUri={item.image}
+      friendId={item._id}
+      userId={user.id}
       onChat={() => router.push(`/profile/${item._id}`)}
       
     />

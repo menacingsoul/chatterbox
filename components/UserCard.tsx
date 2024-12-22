@@ -56,7 +56,7 @@ const UserCard = ({ user, currentUserId, onFriendRequest }: UserCardProps) => {
     <TouchableOpacity
       onPress={handleCardPress}
       activeOpacity={0.7}
-      className="bg-white rounded-2xl shadow-md p-4 mb-4 flex-row items-center border border-gray-100"
+      className="bg-white rounded-2xl shadow-md p-4 mb-4 flex-row gap-1 items-center border border-gray-100"
     >
       {/* Profile Image */}
       <View className="mr-4 p-1 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500">
@@ -71,7 +71,7 @@ const UserCard = ({ user, currentUserId, onFriendRequest }: UserCardProps) => {
         <Text className="text-gray-900 text-lg mb-1 font-poppinssemibold">
           {user.firstName} {user.lastName}
         </Text>
-        <Text className="text-sm text-gray-500 font-inter">{user.email}</Text>
+        <Text className="text-sm text-gray-500 font-inter" numberOfLines={1}>{user.email}</Text>
         <Text className="text-sm text-gray-600 mt-1 font-intersemibold" numberOfLines={1}>
           {user.about}
         </Text>

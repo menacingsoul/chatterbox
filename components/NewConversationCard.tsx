@@ -1,21 +1,50 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
   Image,
   TouchableOpacity,
-  Modal,
-  StyleSheet,
+  ActivityIndicator,
 } from "react-native";
-import { Trash2, Eye } from "lucide-react-native";
-import { useState } from "react";
+import axios from "axios";
+import { useRouter } from "expo-router";
 
 const NewConversationCard = ({
   firstName,
   lastName,
+  friendId,
+  userId,
   imageUri = "https://ui-avatars.com/api/?name=" + firstName + "+" + lastName,
-  onChat,
 }) => {
+  const router = useRouter();
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleChatButton = async () => {
+    setIsLoading(true);
+    try {
+      console.log("Creating chat with friend ID:", friendId);
+      console.log("User ID:", userId);
+
+      const response = await axios.post(
+        `${process.env.EXPO_PUBLIC_BACKEND_URL}/api/chats/createChat`,
+        {
+          userId: userId,
+          friendId: friendId,
+        }
+      );
+      if (response.data && response.data._id) {
+        router.push(`/chat/${response.data._id}`);
+      } else {
+        console.error("No chat ID received");
+      }
+    } catch (error) {
+      console.error("Error handling chat:", error);
+      // You might want to show an error toast/alert here
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <View className="bg-white rounded-2xl shadow-md p-4 mb-4 flex-row items-center border border-gray-100">
       {/* Profile Image with Gradient Border */}
@@ -28,19 +57,23 @@ const NewConversationCard = ({
 
       {/* Name and Details Container */}
       <View className="flex-1 pr-2">
-        <Text className="text-gray-900 text-lg mb-1 font-inter">
+        <Text className="text-gray-900 text-lg mb-1 font-poppinssemibold">
           {firstName} {lastName}
         </Text>
       </View>
 
       {/* Action Buttons Container */}
       <View className="flex-row gap-2">
-        {/* View Profile Button */}
         <TouchableOpacity
-          onPress={onChat}
-          className="bg-indigo-300 p-2 px-4  rounded-xl"
+          onPress={handleChatButton}
+          disabled={isLoading}
+          className={`bg-indigo-500 p-2 px-4 rounded-xl ${isLoading ? "opacity-50" : ""}`}
         >
-          <Text className=" font-interbold">Chat</Text>
+          {isLoading ? (
+            <ActivityIndicator color="white" size="small" />
+          ) : (
+            <Text className="font-interbold text-white">Chat</Text>
+          )}
         </TouchableOpacity>
       </View>
     </View>

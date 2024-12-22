@@ -10,16 +10,19 @@ import {
   Platform,
   SafeAreaView,
   Keyboard,
+  ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import axios from "axios";
 import { useUser } from "@/contexts/UserContext";
 import { useGlobalSearchParams, useRouter } from "expo-router";
 import CryptoJS from "react-native-crypto-js";
-import { SendHorizonalIcon } from "lucide-react-native";
+import { SendHorizonalIcon, Camera } from "lucide-react-native";
 import EmojiSelector from "react-native-emoji-selector";
 import Loader from "@/components/Loader";
+import * as ImagePicker from "expo-image-picker";
 import ChatImageModalViewer from "@/components/ChatImageModalViewer";
+import socket from "@/lib/socket";
 
 const ChatScreen = () => {
   const { id } = useGlobalSearchParams();
@@ -35,6 +38,9 @@ const ChatScreen = () => {
   const flatListRef = useRef(null);
   const [isImageModalVisible, setIsImageModalVisible] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [isSending, setIsSending] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
+  const [friendOnlineStatus, setFriendOnlineStatus] = useState("Offline");
 
   const handleImagePress = (imageUrl: string) => {
     setSelectedImage(imageUrl);
@@ -75,29 +81,75 @@ const ChatScreen = () => {
   };
 
   useEffect(() => {
+    socket.emit("join", { userId: currentUser.id, chatId: id });
+
+    const handleMessage = (data) => {
+      if (data.chatId === id) {
+        setMessages((prevMessages) => [...prevMessages, data.newMessage]);
+      }
+    };
+
+    const handleUserTyping = (data) => {
+      if (data.chatId === id && data.userId !== currentUser.id) {
+        setIsTyping(true);
+      }
+    };
+
+    const handleUserStoppedTyping = (data) => {
+      if (data.chatId === id && data.userId !== currentUser.id) {
+        setIsTyping(false);
+      }
+    };
+
+    const handleUserOnline = (data) => {
+      if (data.userId === friend?._id) {
+        setFriendOnlineStatus("Online");
+      }
+    };
+
+    const handleUserOffline = (data) => {
+      if (data.userId === friend?._id) {
+        setFriendOnlineStatus("Offline");
+      }
+    };
+
+    socket.on("userOnline", handleUserOnline);
+    socket.on("userOffline", handleUserOffline);
+    socket.on("message", handleMessage);
+    socket.on("userTyping", handleUserTyping);
+    socket.on("userStoppedTyping", handleUserStoppedTyping);
+
+    return () => {
+      socket.off("userOnline", handleUserOnline);
+      socket.off("userOffline", handleUserOffline);
+      socket.off("message", handleMessage);
+      socket.off("userTyping", handleUserTyping);
+      socket.off("userStoppedTyping", handleUserStoppedTyping);
+    };
+  }, [id, currentUser.id, friend]);
+
+  useEffect(() => {
     const fetchChat = async () => {
       try {
         const response = await axios.get(
           `${process.env.EXPO_PUBLIC_BACKEND_URL}/api/chats/getChatById`,
           { params: { chatId: id } }
         );
-
         const decryptedMessages = response.data.messages.map((msg) => ({
           ...msg,
-          message: decryptMessage(msg.message), // Decrypt the message
+          message: decryptMessage(msg.message),
         }));
-
         setMessages(decryptedMessages);
-        setFriend(
-          response.data.participants.find((p) => p._id !== currentUser.id)
+        const friendData = response.data.participants.find(
+          (p) => p._id !== currentUser.id
         );
+        setFriend(friendData);
         setIsLoading(false);
       } catch (error) {
         console.error("Error fetching chat:", error);
         setIsLoading(false);
       }
     };
-
     fetchChat();
   }, [id]);
 
@@ -122,38 +174,151 @@ const ChatScreen = () => {
     return CryptoJS.AES.encrypt(message, SECRET_KEY).toString();
   };
 
+  const pickImage = async () => {
+    try {
+      // Request permissions
+      const permissionResult =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (permissionResult.granted === false) {
+        alert("You need to enable permission to access the photo library.");
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 1,
+      });
+
+      if (!result.canceled) {
+        await uploadImageToCloudinary(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error("Error picking image:", error);
+      alert("Error selecting image. Please try again.");
+    }
+  };
+
+  const uploadImageToCloudinary = async (imageUri) => {
+    try {
+      // Create form data
+      const formData = new FormData();
+      const filename = imageUri.split("/").pop();
+      const match = /\.(\w+)$/.exec(filename);
+      const type = match ? `image/${match[1]}` : `image`;
+
+      formData.append("file", {
+        uri: imageUri,
+        name: filename,
+        type,
+      });
+
+      formData.append(
+        "upload_preset",
+        process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET
+      ); // Replace with your upload preset
+      formData.append("folder", `chat_images/${id}`); // Using chat ID as folder name
+
+      // Upload to Cloudinary
+      const response = await fetch(
+        `${process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET_URL}`, // Replace with your cloud name
+        {
+          method: "POST",
+          body: formData,
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      );
+
+      const data = await response.json();
+
+      if (data.secure_url) {
+        await sendImageMessage(data.secure_url);
+      }
+    } catch (error) {
+      console.error("Error uploading image:", error);
+      alert("Error uploading image. Please try again.");
+    }
+  };
+
   const sendMessage = async () => {
     if (message.trim().length === 0) return;
-    console.log("Sending message:", message);
-
-    const encryptedMessage = await encryptMessage(message);
-    console.log("Encrypted message:", encryptedMessage);
-
-    const newMessage = {
-      chatId: id,
-      senderId: currentUser.id,
-      messageType: "text",
-      message: encryptedMessage,
-      timeStamp: new Date(),
-    };
+    setIsSending(true);
 
     try {
+      const encryptedMessage = await encryptMessage(message);
+      const newMessage = {
+        chatId: id,
+        senderId: currentUser.id,
+        messageType: "text",
+        message: encryptedMessage,
+        timeStamp: new Date(),
+      };
+
       await axios.post(
         `${process.env.EXPO_PUBLIC_BACKEND_URL}/api/chats/sendMessage`,
         newMessage
       );
+
       setMessages((prevMessages) => [
         ...prevMessages,
         {
           ...newMessage,
           senderId: { _id: currentUser.id },
-          message, // Display decrypted message in the UI
+          message,
         },
       ]);
       setMessage("");
       setShowEmoji(false);
     } catch (error) {
       console.error("Error sending message:", error);
+      alert("Failed to send message. Please try again.");
+    } finally {
+      setIsSending(false);
+    }
+  };
+  const handleTyping = () => {
+    socket.emit("typing", { chatId: id, userId: currentUser.id });
+  };
+
+  const handleStopTyping = () => {
+    socket.emit("stopTyping", { chatId: id, userId: currentUser.id });
+  };
+
+  const sendImageMessage = async (imageUrl) => {
+    setIsSending(true);
+
+    try {
+      const newMessage = {
+        chatId: id,
+        senderId: currentUser.id,
+        messageType: "image",
+        message: await encryptMessage("Sent an image"),
+        imageUrl: imageUrl,
+        timeStamp: new Date(),
+      };
+
+      await axios.post(
+        `${process.env.EXPO_PUBLIC_BACKEND_URL}/api/chats/sendMessage`,
+        newMessage
+      );
+
+      setMessages((prevMessages) => [
+        ...prevMessages,
+        {
+          ...newMessage,
+          senderId: { _id: currentUser.id },
+          message: "Sent an image",
+        },
+      ]);
+    } catch (error) {
+      console.error("Error sending image message:", error);
+      alert("Error sending image. Please try again.");
+    } finally {
+      setIsSending(false);
     }
   };
 
@@ -229,7 +394,7 @@ const ChatScreen = () => {
         <View className="flex-row items-center justify-between py-4 px-4">
           <View className="flex-row items-center flex-1">
             <TouchableOpacity
-              onPress={() => router.back()}
+              onPress={() => router.push("/(root)/chat")}
               className="p-2 -ml-2"
             >
               <Ionicons name="chevron-back" size={24} color="#6366F1" />
@@ -246,7 +411,9 @@ const ChatScreen = () => {
                 <Text className="text-lg font-semibold text-gray-900">
                   {friend?.firstName} {friend?.lastName}
                 </Text>
-                <Text className="text-sm text-indigo-500">Online</Text>
+                <Text className="text-sm text-indigo-500">
+                  {isTyping ? "Typing..." : friendOnlineStatus}
+                </Text>
               </View>
             </TouchableOpacity>
           </View>
@@ -310,12 +477,19 @@ const ChatScreen = () => {
             maxHeight={100}
             placeholderTextColor="#9CA3AF"
           />
+          <TouchableOpacity onPress={pickImage} className="mr-3">
+            <Camera size={24} color="#6366F1" />
+          </TouchableOpacity>
           <TouchableOpacity
             onPress={sendMessage}
             className="bg-indigo-500 rounded-full p-2.5 shadow-sm"
             disabled={message.trim().length === 0}
           >
-            <SendHorizonalIcon size={26} color="white" />
+            {isSending ? (
+              <ActivityIndicator color="white" size="small" />
+            ) : (
+              <SendHorizonalIcon size={26} color="white" />
+            )}
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>

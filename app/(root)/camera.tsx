@@ -8,9 +8,8 @@ import {
   ActivityIndicator,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
-import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { CheckCheck, CheckIcon } from "lucide-react-native";
+import { Camera, ImageIcon, X, Upload, ImagesIcon } from 'lucide-react-native';
 
 const ImagePickerScreen = () => {
   const [image, setImage] = useState(null);
@@ -77,7 +76,6 @@ const ImagePickerScreen = () => {
       const data = await response.json();
 
       if (response.ok) {
-        // Navigate back to chats screen with the Cloudinary URL
         router.push({
           pathname: "/(root)/chat",
           params: { imageUrl: data.secure_url },
@@ -93,62 +91,68 @@ const ImagePickerScreen = () => {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-100">
-      <View className="flex-1 p-4">
+    <SafeAreaView className="flex-1 bg-white">
+      <View className="flex-1 px-4">
         {image ? (
-          // Image preview
-          <View className="flex-1">
-            <Image source={{ uri: image }} className="flex-1 rounded-lg"/>
-            <View className="flex-row justify-around items-center p-4 bg-white/90 absolute bottom-0 w-full rounded-t-lg">
+          // Image preview with minimal controls
+          <View className="flex-1 relative mt-4">
+            <Image 
+              source={{ uri: image }} 
+              className="flex-1 rounded-3xl"
+            />
+            
+            {/* Floating action buttons */}
+            <View className="absolute top-4 right-4 flex-row space-x-4">
               <TouchableOpacity
                 onPress={() => setImage(null)}
-                className="bg-red-500 p-4 rounded-full"
+                className="bg-black/20 backdrop-blur-lg p-3 rounded-full"
                 disabled={isUploading}
               >
-                <Ionicons name="close" size={24} color="white" />
+                <X size={24} color="white" />
               </TouchableOpacity>
 
               {isUploading ? (
-                <View className="bg-indigo-500 p-4 rounded-full">
+                <View className="bg-black/20 backdrop-blur-lg p-3 rounded-full">
                   <ActivityIndicator color="white" />
                 </View>
               ) : (
                 <TouchableOpacity
                   onPress={uploadToCloudinary}
-                  className="bg-indigo-500 p-4 rounded-full"
+                  className="bg-black/20 backdrop-blur-lg p-3 rounded-full"
                 >
-                  <CheckIcon size={24} color="white" />
+                  <Upload size={24} color="white" />
                 </TouchableOpacity>
               )}
             </View>
           </View>
         ) : (
-          // Option buttons
-          <View className="flex-1 justify-center">
-            <TouchableOpacity
-              onPress={takePhoto}
-              className="bg-indigo-500 p-4 rounded-lg mb-4 flex-row items-center justify-center"
-            >
-              <Ionicons
-                name="camera"
-                size={24}
-                color="white"
-                className="mr-2"
-              />
-              <Text className="text-white text-lg ml-2 font-medium">
-                Take Photo
-              </Text>
-            </TouchableOpacity>
+          // Minimal upload options
+          <View className="flex-1 items-center justify-center">
+            <Text className="text-2xl font-intermedium text-center text-gray-900 mb-8">
+              Add Photo
+            </Text>
+            
+            <View className=" gap-2 flex-row">
+              <TouchableOpacity
+                onPress={takePhoto}
+                className="bg-gray-50 h-20 w-40 border mr-4 border-gray-200/80 shadow-md p-6 rounded-2xl flex-row items-center justify-center "
+              >
+                <Camera size={24} color="#4F46E5" strokeWidth={2} />
+                <Text className="text-gray-900 text-lg ml-3 font-poppinssemibold ">
+                  Camera
+                </Text>
+              </TouchableOpacity>
 
-            <TouchableOpacity
-              onPress={pickImage}
-              className="bg-indigo-500 p-4 rounded-lg flex-row items-center justify-center"
-            >
-              <Ionicons name="image" size={24} color="white" className="mr-2" />
-              <Text className="text-white text-lg ml-2 font-medium">
-                Choose from Gallery
-              </Text>
-            </TouchableOpacity>
+              <TouchableOpacity
+                onPress={pickImage}
+                className="bg-gray-50 h-20 w-40 border border-gray-200/80 shadow-md p-6 rounded-2xl flex-row items-center justify-center space-x-3"
+              >
+                <ImagesIcon size={24} color="#4F46E5" strokeWidth={2} />
+                <Text className="text-gray-900 text-lg ml-3 font-poppinssemibold">
+                  Gallery
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         )}
       </View>

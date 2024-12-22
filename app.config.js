@@ -39,18 +39,6 @@ export default {
       "expo-secure-store",
       "expo-notifications",
     ],
-    build: {
-      preview: {
-        android: {
-          buildType: "apk",
-        },
-      },
-      production: {
-        android: {
-          buildType: "apk",
-        },
-      },
-    },
     experiments: {
       typedRoutes: true,
     },
