@@ -22,7 +22,7 @@ import EmojiSelector from "react-native-emoji-selector";
 import Loader from "@/components/Loader";
 import * as ImagePicker from "expo-image-picker";
 import ChatImageModalViewer from "@/components/ChatImageModalViewer";
-import socket from "@/lib/socket";
+import { useSocket } from "@/contexts/SocketContext";
 
 const ChatScreen = () => {
   const { id } = useGlobalSearchParams();
@@ -39,8 +39,13 @@ const ChatScreen = () => {
   const [isImageModalVisible, setIsImageModalVisible] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
+  const [isOnline, setIsOnline] = useState(false);
+  const [onlineFriends, setOnlineFriends] = useState(new Set());
+  const { socket, isConnected } = useSocket();
+  const [socketConnected, setSocketConnected] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
-  const [friendOnlineStatus, setFriendOnlineStatus] = useState("Offline");
+  const [friendTyping, setFriendTyping] = useState(false);
+  const typingTimeoutRef = useRef(null);
 
   const handleImagePress = (imageUrl: string) => {
     setSelectedImage(imageUrl);
@@ -81,75 +86,29 @@ const ChatScreen = () => {
   };
 
   useEffect(() => {
-    socket.emit("join", { userId: currentUser.id, chatId: id });
-
-    const handleMessage = (data) => {
-      if (data.chatId === id) {
-        setMessages((prevMessages) => [...prevMessages, data.newMessage]);
-      }
-    };
-
-    const handleUserTyping = (data) => {
-      if (data.chatId === id && data.userId !== currentUser.id) {
-        setIsTyping(true);
-      }
-    };
-
-    const handleUserStoppedTyping = (data) => {
-      if (data.chatId === id && data.userId !== currentUser.id) {
-        setIsTyping(false);
-      }
-    };
-
-    const handleUserOnline = (data) => {
-      if (data.userId === friend?._id) {
-        setFriendOnlineStatus("Online");
-      }
-    };
-
-    const handleUserOffline = (data) => {
-      if (data.userId === friend?._id) {
-        setFriendOnlineStatus("Offline");
-      }
-    };
-
-    socket.on("userOnline", handleUserOnline);
-    socket.on("userOffline", handleUserOffline);
-    socket.on("message", handleMessage);
-    socket.on("userTyping", handleUserTyping);
-    socket.on("userStoppedTyping", handleUserStoppedTyping);
-
-    return () => {
-      socket.off("userOnline", handleUserOnline);
-      socket.off("userOffline", handleUserOffline);
-      socket.off("message", handleMessage);
-      socket.off("userTyping", handleUserTyping);
-      socket.off("userStoppedTyping", handleUserStoppedTyping);
-    };
-  }, [id, currentUser.id, friend]);
-
-  useEffect(() => {
     const fetchChat = async () => {
       try {
         const response = await axios.get(
           `${process.env.EXPO_PUBLIC_BACKEND_URL}/api/chats/getChatById`,
           { params: { chatId: id } }
         );
+
         const decryptedMessages = response.data.messages.map((msg) => ({
           ...msg,
-          message: decryptMessage(msg.message),
+          message: decryptMessage(msg.message), // Decrypt the message
         }));
+
         setMessages(decryptedMessages);
-        const friendData = response.data.participants.find(
-          (p) => p._id !== currentUser.id
+        setFriend(
+          response.data.participants.find((p) => p._id !== currentUser.id)
         );
-        setFriend(friendData);
         setIsLoading(false);
       } catch (error) {
         console.error("Error fetching chat:", error);
         setIsLoading(false);
       }
     };
+
     fetchChat();
   }, [id]);
 
@@ -244,8 +203,130 @@ const ChatScreen = () => {
     }
   };
 
+  useEffect(() => {
+    if (!socket || !id || !currentUser?.id) return;
+
+    const setupSocket = () => {
+      // Join chat room
+      socket.emit("join", { userId: currentUser.id, chatId: id });
+      setSocketConnected(true);
+
+      // Listen for new messages
+      socket.on("message", ({ chatId, newMessage }) => {
+        if (chatId === id) {
+          setMessages((prev) => [
+            ...prev,
+            {
+              ...newMessage,
+              message: decryptMessage(newMessage.message),
+            },
+          ]);
+        }
+      });
+
+      socket.on("userOnline", ({ userId }) => {
+        if (userId === friend?._id) {
+          setIsOnline(true);
+        }
+        setOnlineFriends((prev) => new Set([...prev, userId]));
+      });
+
+      socket.on("userOffline", ({ userId }) => {
+        if (userId === friend?._id) {
+          setIsOnline(false);
+        }
+        setOnlineFriends((prev) => {
+          const newSet = new Set(prev);
+          newSet.delete(userId);
+          return newSet;
+        });
+      });
+
+      socket.on("onlineFriends", ({ friendIds }) => {
+        setOnlineFriends(new Set(friendIds));
+        if (friend?._id) {
+          console.log("friendIds", friendIds);
+          setIsOnline(friendIds.includes(friend._id));
+        }
+      });
+
+      // Listen for typing status
+      socket.on("userTyping", ({ chatId, userId }) => {
+        if (chatId === id && userId !== currentUser.id) {
+          setFriendTyping(true);
+        }
+      });
+
+      socket.on("userStoppedTyping", ({ chatId, userId }) => {
+        if (chatId === id && userId !== currentUser.id) {
+          setFriendTyping(false);
+        }
+      });
+
+      // Listen for connection status
+      socket.on("connect", () => {
+        setSocketConnected(true);
+      });
+
+      socket.on("disconnect", () => {
+        setSocketConnected(false);
+      });
+
+      socket.emit("requestOnlineStatus", { friendId: friend?._id });
+    };
+
+    setupSocket();
+
+    // Cleanup function
+    return () => {
+      if (socket) {
+        socket.off("message");
+        socket.off("userTyping");
+        socket.off("userStoppedTyping");
+        socket.off("userOnline");
+        socket.off("userOffline");
+        socket.off("onlineFriends");
+        socket.off("connect");
+        socket.off("disconnect");
+      }
+    };
+  }, [socket, id, currentUser?.id]);
+
+  useEffect(() => {
+    if (!socket || !id || !currentUser?.id || !messages.length) return;
+
+    // Mark messages as seen when they're received
+    const unseenMessages = messages.filter(
+      (msg) => !msg.seen && msg.senderId._id !== currentUser.id
+    );
+
+    if (unseenMessages.length > 0) {
+      unseenMessages.forEach((msg) => {
+        socket.emit("messageSeen", {
+          chatId: id,
+          messageId: msg._id,
+          seenBy: currentUser.id,
+        });
+      });
+    }
+  }, [messages, socket, id, currentUser?.id]);
+
+  const safeEmit = (eventName, data) => {
+    if (socket && socketConnected) {
+      socket.emit(eventName, data);
+      return true;
+    }
+    console.warn("Socket not connected, message queued");
+    return false;
+  };
+
   const sendMessage = async () => {
     if (message.trim().length === 0) return;
+    if (!socketConnected) {
+      alert("Connection lost. Please try again.");
+      return;
+    }
+
     setIsSending(true);
 
     try {
@@ -258,21 +339,12 @@ const ChatScreen = () => {
         timeStamp: new Date(),
       };
 
-      await axios.post(
-        `${process.env.EXPO_PUBLIC_BACKEND_URL}/api/chats/sendMessage`,
-        newMessage
-      );
+      const sent = safeEmit("sendMessage", newMessage);
 
-      setMessages((prevMessages) => [
-        ...prevMessages,
-        {
-          ...newMessage,
-          senderId: { _id: currentUser.id },
-          message,
-        },
-      ]);
-      setMessage("");
-      setShowEmoji(false);
+      if (sent) {
+        setMessage("");
+        setShowEmoji(false);
+      }
     } catch (error) {
       console.error("Error sending message:", error);
       alert("Failed to send message. Please try again.");
@@ -280,15 +352,13 @@ const ChatScreen = () => {
       setIsSending(false);
     }
   };
-  const handleTyping = () => {
-    socket.emit("typing", { chatId: id, userId: currentUser.id });
-  };
-
-  const handleStopTyping = () => {
-    socket.emit("stopTyping", { chatId: id, userId: currentUser.id });
-  };
 
   const sendImageMessage = async (imageUrl) => {
+    if (!socketConnected) {
+      alert("Connection lost. Please try again.");
+      return;
+    }
+
     setIsSending(true);
 
     try {
@@ -301,19 +371,11 @@ const ChatScreen = () => {
         timeStamp: new Date(),
       };
 
-      await axios.post(
-        `${process.env.EXPO_PUBLIC_BACKEND_URL}/api/chats/sendMessage`,
-        newMessage
-      );
+      const sent = safeEmit("sendMessage", newMessage);
 
-      setMessages((prevMessages) => [
-        ...prevMessages,
-        {
-          ...newMessage,
-          senderId: { _id: currentUser.id },
-          message: "Sent an image",
-        },
-      ]);
+      if (sent) {
+        console.log("Image sent successfully");
+      }
     } catch (error) {
       console.error("Error sending image message:", error);
       alert("Error sending image. Please try again.");
@@ -321,6 +383,27 @@ const ChatScreen = () => {
       setIsSending(false);
     }
   };
+
+  // Modified typing handler with safety checks
+  const handleTyping = () => {
+    if (!socketConnected) return;
+
+    if (!isTyping) {
+      setIsTyping(true);
+      safeEmit("typing", { chatId: id, userId: currentUser.id });
+    }
+
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+
+    typingTimeoutRef.current = setTimeout(() => {
+      setIsTyping(false);
+      safeEmit("stopTyping", { chatId: id, userId: currentUser.id });
+    }, 1500);
+  };
+  
+  console.log("isOnline", isOnline); 
 
   const renderMessage = ({ item }) => {
     const isCurrentUser = item.senderId._id === currentUser.id;
@@ -378,6 +461,24 @@ const ChatScreen = () => {
               minute: "2-digit",
             })}
           </Text>
+          {isCurrentUser && (
+            <View className="flex-row items-center ml-1">
+              {item.seen ? (
+                <View className="flex-row">
+                  <Image
+                    source={{ uri: friend?.image }}
+                    className="w-3 h-3 rounded-full"
+                  />
+                </View>
+              ) : (
+                <Ionicons
+                  name="checkmark-done"
+                  size={16}
+                  color="rgba(255, 255, 255, 0.7)"
+                />
+              )}
+            </View>
+          )}
         </View>
       </View>
     );
@@ -403,17 +504,28 @@ const ChatScreen = () => {
               onPress={() => router.push(`/(root)/profile/${friend._id}`)}
               className="flex-row items-center flex-1 ml-2"
             >
+              <View className="relative">
               <Image
                 source={{ uri: friend?.image }}
                 className="w-10 h-10 rounded-full border-2 border-indigo-100"
               />
+              {isOnline && (
+                <View className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white" />
+              )}
+            </View>
+
               <View className="ml-3 flex-1">
-                <Text className="text-lg font-semibold text-gray-900">
+                <Text className="text-lg font-poppinssemibold text-gray-900">
                   {friend?.firstName} {friend?.lastName}
                 </Text>
-                <Text className="text-sm text-indigo-500">
-                  {isTyping ? "Typing..." : friendOnlineStatus}
-                </Text>
+                {friendTyping && (
+                  <View className="pb-1">
+                    <Text className="text-sm font-intermedium">
+                      Typing...
+                    </Text>
+                    
+                  </View>
+                )}
               </View>
             </TouchableOpacity>
           </View>
@@ -467,15 +579,21 @@ const ChatScreen = () => {
             />
           </TouchableOpacity>
           <TextInput
-            className="flex-1 bg-gray-50 rounded-full px-4 py-2 mr-3 border border-gray-200"
-            placeholder="Type a message..."
+            className="flex-1 bg-gray-50 rounded-full px-4 py-2 mr-3 border font-inter border-gray-200"
+            placeholder={
+              socketConnected ? "Type a message..." : "Connecting..."
+            }
             value={message}
-            onChangeText={setMessage}
+            onChangeText={(text) => {
+              setMessage(text);
+              handleTyping();
+            }}
             onFocus={() => setShowEmoji(false)}
             multiline
             minHeight={45}
             maxHeight={100}
             placeholderTextColor="#9CA3AF"
+            editable={socketConnected}
           />
           <TouchableOpacity onPress={pickImage} className="mr-3">
             <Camera size={24} color="#6366F1" />

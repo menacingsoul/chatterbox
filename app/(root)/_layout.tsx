@@ -24,6 +24,7 @@ import { RequestsProvider } from "@/contexts/RequestsContext";
 import ChatterBoxHeader from "@/components/AppHeader";
 import NotificationHandler from "@/components/NotificationHandler";
 import { useRequests } from "@/contexts/RequestsContext";
+import { SocketProvider } from "@/contexts/SocketContext";
 
 const TabBar = () => {
   const router = useRouter();
@@ -157,19 +158,26 @@ const Layout = () => {
             <StatusBar barStyle="dark-content" backgroundColor="#f9fafb" />
 
             {!pathname.includes("chat/") && <ChatterBoxHeader />}
-
-            <Stack screenOptions={{ headerShown: false }}>
-              <Stack.Screen name="messages" options={{ headerShown: false }} />
-              <Stack.Screen name="explore" options={{ headerShown: false }} />
-              <Stack.Screen name="requests" options={{ headerShown: false }} />
-              <Stack.Screen name="profile" options={{ headerShown: false }} />
-              <Stack.Screen name="friends" options={{ headerShown: false }} />
-              <Stack.Screen name="camera" options={{ headerShown: false }} />
-              <Stack.Screen
-                name="newConversation"
-                options={{ headerShown: false }}
-              />
-            </Stack>
+            <SocketProvider>
+              <Stack screenOptions={{ headerShown: false }}>
+                <Stack.Screen
+                  name="messages"
+                  options={{ headerShown: false }}
+                />
+                <Stack.Screen name="explore" options={{ headerShown: false }} />
+                <Stack.Screen
+                  name="requests"
+                  options={{ headerShown: false }}
+                />
+                <Stack.Screen name="profile" options={{ headerShown: false }} />
+                <Stack.Screen name="friends" options={{ headerShown: false }} />
+                <Stack.Screen name="camera" options={{ headerShown: false }} />
+                <Stack.Screen
+                  name="newConversation"
+                  options={{ headerShown: false }}
+                />
+              </Stack>
+            </SocketProvider>
             {!pathname.includes("chat/") && (
               <View className=" bg-white h-20">
                 <TabBar />
