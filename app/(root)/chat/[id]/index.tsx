@@ -17,12 +17,20 @@ import axios from "axios";
 import { useUser } from "@/contexts/UserContext";
 import { useGlobalSearchParams, useRouter } from "expo-router";
 import CryptoJS from "react-native-crypto-js";
-import { SendHorizonalIcon, Camera } from "lucide-react-native";
+import {
+  SendHorizonalIcon,
+  Camera,
+  CheckCheckIcon,
+  CheckIcon,
+} from "lucide-react-native";
 import EmojiSelector from "react-native-emoji-selector";
 import Loader from "@/components/Loader";
 import * as ImagePicker from "expo-image-picker";
 import ChatImageModalViewer from "@/components/ChatImageModalViewer";
 import { useSocket } from "@/contexts/SocketContext";
+import { useFocusEffect } from "expo-router";
+import { useCallback } from "react";
+import { BackHandler } from 'react-native';
 
 const ChatScreen = () => {
   const { id } = useGlobalSearchParams();
@@ -41,11 +49,147 @@ const ChatScreen = () => {
   const [isSending, setIsSending] = useState(false);
   const [isOnline, setIsOnline] = useState(false);
   const [onlineFriends, setOnlineFriends] = useState(new Set());
-  const { socket, isConnected } = useSocket();
+  const { socket } = useSocket();
   const [socketConnected, setSocketConnected] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [friendTyping, setFriendTyping] = useState(false);
   const typingTimeoutRef = useRef(null);
+
+  const handleSocketEvents = () => {
+    if (!socket || !id || !currentUser?.id || !friend) return;
+
+    // Clean up existing listeners
+    socket.removeAllListeners();
+
+    // Set up new listeners
+    socket.on("message", ({ chatId, newMessage }) => {
+      if (chatId === id) {
+        const decryptedMsg = {
+          ...newMessage,
+          message:
+            newMessage.messageType === "text"
+              ? decryptMessage(newMessage.message)
+              : newMessage.message,
+        };
+        // Important: Use functional update to ensure we're working with latest state
+        setMessages((prevMessages) => [...prevMessages, decryptedMsg]);
+      }
+    });
+
+    socket.on(
+      "messageSeenUpdate",
+      ({ chatId, messageId, seenBy, unreadCounts }) => {
+        if (chatId === id) {
+          setMessages((prevMessages) =>
+            prevMessages.map((msg) =>
+              msg._id === messageId ? { ...msg, seen: true } : msg
+            )
+          );
+        }
+      }
+    );
+
+    socket.on("unreadCountUpdate", ({ chatId: updateChatId, unreadCounts }) => {
+      if (updateChatId === id) {
+        // Handle unread count updates if needed
+        console.log("Unread counts updated:", unreadCounts);
+      }
+    });
+
+    socket.on("lastMessageUpdate", ({ chatId: updateChatId, lastMessage }) => {
+      if (updateChatId === id) {
+        // Handle last message updates if needed
+        console.log("Last message updated:", lastMessage);
+      }
+    });
+
+    // Handle online status
+    socket.on("onlineFriends", ({ friendIds }) => {
+      setOnlineFriends(new Set(friendIds));
+      setIsOnline(friendIds.includes(friend._id));
+    });
+
+    socket.on("userOnline", ({ userId }) => {
+      if (userId === friend._id) {
+        setIsOnline(true);
+      }
+      setOnlineFriends((prev) => new Set([...prev, userId]));
+    });
+
+    socket.on("userOffline", ({ userId }) => {
+      if (userId === friend._id) {
+        setIsOnline(false);
+      }
+      setOnlineFriends((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(userId);
+        return newSet;
+      });
+    });
+
+    // Typing status
+    socket.on("userTyping", ({ chatId: typingChatId, userId }) => {
+      if (typingChatId === id && userId !== currentUser.id) {
+        setFriendTyping(true);
+      }
+    });
+
+    socket.on("userStoppedTyping", ({ chatId: typingChatId, userId }) => {
+      if (typingChatId === id && userId !== currentUser.id) {
+        setFriendTyping(false);
+      }
+    });
+
+    // Join the chat room
+    socket.emit("join", { userId: currentUser.id, chatId: id });
+  };
+
+  useEffect(() => {
+    if (socket && friend && currentUser?.id) {
+      handleSocketEvents();
+      setSocketConnected(true);
+
+      // Cleanup function
+      return () => {
+        socket.removeAllListeners();
+      };
+    }
+  }, [socket, friend, currentUser?.id, id]);
+
+  // Add a navigation focus effect
+  useFocusEffect(
+    useCallback(() => {
+      // This runs when the screen focuses
+      if (socket && friend && currentUser?.id) {
+        console.log("Screen focused - reinitializing socket events");
+        handleSocketEvents();
+        // Request fresh online status
+        socket.emit("requestOnlineStatus", { friendId: friend._id });
+      }
+
+      // This runs when the screen unfocuses
+      return () => {
+        console.log("Screen unfocused - cleaning up socket events");
+        if (socket) {
+          socket.removeAllListeners();
+          setSocketConnected(false);
+        }
+      };
+    }, [socket, friend, currentUser?.id, id])
+  );
+
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener(
+      'hardwareBackPress',
+      () => {
+        router.push('/(root)/chat');
+        return true; // Prevents default behavior
+      }
+    );
+  
+    return () => backHandler.remove();
+  }, [router]);
+  
 
   const handleImagePress = (imageUrl: string) => {
     setSelectedImage(imageUrl);
@@ -110,7 +254,7 @@ const ChatScreen = () => {
     };
 
     fetchChat();
-  }, [id]);
+  }, []);
 
   useEffect(() => {
     if (flatListRef.current && messages.length > 0) {
@@ -129,8 +273,16 @@ const ChatScreen = () => {
     setShowEmoji(!showEmoji);
   };
 
-  const encryptMessage = async (message) => {
-    return CryptoJS.AES.encrypt(message, SECRET_KEY).toString();
+  const encryptMessage = (message) => {
+    try {
+      if (!SECRET_KEY) {
+        throw new Error("Encryption key is not defined");
+      }
+      return CryptoJS.AES.encrypt(message, SECRET_KEY).toString();
+    } catch (error) {
+      console.error("Encryption error:", error);
+      throw new Error("Failed to encrypt message");
+    }
   };
 
   const pickImage = async () => {
@@ -203,112 +355,303 @@ const ChatScreen = () => {
     }
   };
 
-  useEffect(() => {
-    if (!socket || !id || !currentUser?.id) return;
+  // useEffect(() => {
+  //   if (!socket || !id || !currentUser?.id || !friend) return;
 
-    const setupSocket = () => {
-      // Join chat room
-      socket.emit("join", { userId: currentUser.id, chatId: id });
-      setSocketConnected(true);
+  //   const setupSocket = () => {
+  //     // Join chat room
+  //     socket.emit("join", { userId: currentUser.id, chatId: id });
+  //     setSocketConnected(true);
 
-      // Listen for new messages
-      socket.on("message", ({ chatId, newMessage }) => {
-        if (chatId === id) {
-          setMessages((prev) => [
-            ...prev,
-            {
-              ...newMessage,
-              message: decryptMessage(newMessage.message),
-            },
-          ]);
-        }
-      });
+  //     socket.on("connect", () => {
+  //       setSocketConnected(true);
+  //     });
 
-      socket.on("userOnline", ({ userId }) => {
-        if (userId === friend?._id) {
-          setIsOnline(true);
-        }
-        setOnlineFriends((prev) => new Set([...prev, userId]));
-      });
+  //     // Listen for new messages
+  //     socket.on("message", ({ chatId, newMessage }) => {
+  //       if (chatId === id) {
+  //         const decryptedMsg = {
+  //           ...newMessage,
+  //           message: newMessage.messageType === "text" ? decryptMessage(newMessage.message) : newMessage.message
+  //         };
+  //         setMessages(prev => [...prev, decryptedMsg]);
+  //       }
+  //     });
 
-      socket.on("userOffline", ({ userId }) => {
-        if (userId === friend?._id) {
-          setIsOnline(false);
-        }
-        setOnlineFriends((prev) => {
-          const newSet = new Set(prev);
-          newSet.delete(userId);
-          return newSet;
-        });
-      });
+  //     socket.on("userOnline", ({ userId }) => {
+  //       if (userId === friend?._id) {
+  //         setIsOnline(true);
+  //       }
+  //       setOnlineFriends((prev) => new Set([...prev, userId]));
+  //     });
 
-      socket.on("onlineFriends", ({ friendIds }) => {
-        setOnlineFriends(new Set(friendIds));
-        if (friend?._id) {
-          console.log("friendIds", friendIds);
-          setIsOnline(friendIds.includes(friend._id));
-        }
-      });
+  //     socket.on("userOffline", ({ userId }) => {
+  //       if (userId === friend?._id) {
+  //         setIsOnline(false);
+  //       }
+  //       setOnlineFriends((prev) => {
+  //         const newSet = new Set(prev);
+  //         newSet.delete(userId);
+  //         return newSet;
+  //       });
+  //     });
 
-      // Listen for typing status
-      socket.on("userTyping", ({ chatId, userId }) => {
-        if (chatId === id && userId !== currentUser.id) {
-          setFriendTyping(true);
-        }
-      });
+  //     socket.on("onlineFriends", ({ friendIds }) => {
+  //       setOnlineFriends(new Set(friendIds));
+  //       if (friend?._id) {
+  //         console.log("friendIds", friendIds);
+  //         setIsOnline(friendIds.includes(friend._id));
+  //       }
+  //     });
 
-      socket.on("userStoppedTyping", ({ chatId, userId }) => {
-        if (chatId === id && userId !== currentUser.id) {
-          setFriendTyping(false);
-        }
-      });
+  //     // Listen for typing status
+  //     socket.on("userTyping", ({ chatId, userId }) => {
+  //       if (chatId === id && userId !== currentUser.id) {
+  //         setFriendTyping(true);
+  //       }
+  //     });
 
-      // Listen for connection status
-      socket.on("connect", () => {
-        setSocketConnected(true);
-      });
+  //     socket.on("userStoppedTyping", ({ chatId, userId }) => {
+  //       if (chatId === id && userId !== currentUser.id) {
+  //         setFriendTyping(false);
+  //       }
+  //     });
+  //     socket.on("messageSeenUpdate", ({ chatId, messageId, seenBy }) => {
+  //       if (chatId === id) {
+  //         setMessages((prevMessages) =>
+  //           prevMessages.map((msg) =>
+  //             msg._id === messageId ? { ...msg, seen: true } : msg
+  //           )
+  //         );
+  //       }
+  //     });
 
-      socket.on("disconnect", () => {
-        setSocketConnected(false);
-      });
+  //     // Listen for connection status
 
-      socket.emit("requestOnlineStatus", { friendId: friend?._id });
-    };
+  //     socket.on("disconnect", () => {
+  //       setSocketConnected(false);
+  //     });
 
-    setupSocket();
+  //     socket.emit("requestOnlineStatus", { friendId: friend._id });
 
-    // Cleanup function
-    return () => {
-      if (socket) {
-        socket.off("message");
-        socket.off("userTyping");
-        socket.off("userStoppedTyping");
-        socket.off("userOnline");
-        socket.off("userOffline");
-        socket.off("onlineFriends");
-        socket.off("connect");
-        socket.off("disconnect");
-      }
-    };
-  }, [socket, id, currentUser?.id]);
+  //     // Listen for online status events
+  //     socket.on("userOnline", ({ userId }) => {
+  //       console.log("User online event received for:", userId);
+  //       if (userId === friend._id) {
+  //         setIsOnline(true);
+  //       }
+  //     });
+
+  //     socket.on("userOffline", ({ userId }) => {
+  //       console.log("User offline event received for:", userId);
+  //       if (userId === friend._id) {
+  //         setIsOnline(false);
+  //       }
+  //     });
+
+  //     socket.on("onlineFriends", ({ friendIds }) => {
+  //       console.log("Online friends received:", friendIds);
+  //       setOnlineFriends(new Set(friendIds));
+  //       setIsOnline(friendIds.includes(friend._id));
+  //     });
+
+  //     // Request online status periodically
+  //     const statusInterval = setInterval(() => {
+  //       if (socket.connected) {
+  //         socket.emit("requestOnlineStatus", { friendId: friend._id });
+  //       }
+  //     }, 30000); // Check every 30 seconds
+
+  //     return () => {
+  //       clearInterval(statusInterval);
+  //     };
+  //   };
+
+  //   setupSocket();
+
+  //   // Cleanup function
+  //   return () => {
+  //     if (socket) {
+  //       socket.off("message");
+  //       socket.off("userTyping");
+  //       socket.off("userStoppedTyping");
+  //       socket.off("userOnline");
+  //       socket.off("userOffline");
+  //       socket.off("onlineFriends");
+  //       socket.off("connect");
+  //       socket.off("disconnect");
+  //       socket.off("messageSeenUpdate");
+  //     }
+  //   };
+  // }, [socket, id, currentUser?.id,friend]);
+
+  // useEffect(() => {
+  //   if (!socket || !friend?._id) return;
+
+  //   const handleReconnect = () => {
+  //     console.log("Socket reconnected, requesting online status");
+  //     socket.emit("requestOnlineStatus", { friendId: friend._id });
+  //   };
+
+  //   socket.on("connect", handleReconnect);
+
+  //   return () => {
+  //     socket.off("connect", handleReconnect);
+  //   };
+  // }, [socket, friend?._id]);
+
+  // const setupSocketEvents = () => {
+  //   if (!socket || !id || !currentUser?.id || !friend) return;
+
+  //   // Clean up existing listeners first
+  //   socket.removeAllListeners();
+
+  //   // Join chat room
+  //   socket.emit("join", { userId: currentUser.id, chatId: id });
+  //   setSocketConnected(true);
+
+  //   // Message handler
+  //   const handleNewMessage = ({ chatId, newMessage }) => {
+  //     if (chatId === id) {
+  //       const decryptedMsg = {
+  //         ...newMessage,
+  //         message: newMessage.messageType === "text"
+  //           ? decryptMessage(newMessage.message)
+  //           : newMessage.message
+  //       };
+  //       setMessages(prev => [...prev, decryptedMsg]);
+  //     }
+  //   };
+
+  //   // Online status handlers
+  //   const handleUserOnline = ({ userId }) => {
+  //     if (userId === friend._id) {
+  //       setIsOnline(true);
+  //     }
+  //     setOnlineFriends(prev => new Set([...prev, userId]));
+  //   };
+
+  //   const handleUserOffline = ({ userId }) => {
+  //     if (userId === friend._id) {
+  //       setIsOnline(false);
+  //     }
+  //     setOnlineFriends(prev => {
+  //       const newSet = new Set(prev);
+  //       newSet.delete(userId);
+  //       return newSet;
+  //     });
+  //   };
+
+  //   // Typing status handlers
+  //   const handleUserTyping = ({ chatId, userId }) => {
+  //     if (chatId === id && userId !== currentUser.id) {
+  //       setFriendTyping(true);
+  //     }
+  //   };
+
+  //   const handleUserStoppedTyping = ({ chatId, userId }) => {
+  //     if (chatId === id && userId !== currentUser.id) {
+  //       setFriendTyping(false);
+  //     }
+  //   };
+
+  //   // Message seen handler
+  //   const handleMessageSeen = ({ chatId, messageId, seenBy }) => {
+  //     if (chatId === id) {
+  //       setMessages(prevMessages =>
+  //         prevMessages.map(msg =>
+  //           msg._id === messageId ? { ...msg, seen: true } : msg
+  //         )
+  //       );
+  //     }
+  //   };
+
+  //   // Set up event listeners
+  //   socket.on("connect", () => setSocketConnected(true));
+  //   socket.on("disconnect", () => setSocketConnected(false));
+  //   socket.on("message", handleNewMessage);
+  //   socket.on("userOnline", handleUserOnline);
+  //   socket.on("userOffline", handleUserOffline);
+  //   socket.on("onlineFriends", ({ friendIds }) => {
+  //     setOnlineFriends(new Set(friendIds));
+  //     if (friend._id) {
+  //       setIsOnline(friendIds.includes(friend._id));
+  //     }
+  //   });
+  //   socket.on("userTyping", handleUserTyping);
+  //   socket.on("userStoppedTyping", handleUserStoppedTyping);
+  //   socket.on("messageSeenUpdate", handleMessageSeen);
+
+  //   // Request initial online status
+  //   socket.emit("requestOnlineStatus", { friendId: friend._id });
+
+  //   // Periodic online status check
+  //   const statusInterval = setInterval(() => {
+  //     if (socket.connected) {
+  //       socket.emit("requestOnlineStatus", { friendId: friend._id });
+  //     }
+  //   }, 30000);
+
+  //   return () => {
+  //     clearInterval(statusInterval);
+  //     socket.removeAllListeners();
+  //   };
+  // };
+
+  // Initial chat data fetch
+
+  // // Socket setup effect
+  // useEffect(() => {
+  //   if (friend) {
+  //     const cleanup = setupSocketEvents();
+  //     return () => {
+  //       cleanup?.();
+  //     };
+  //   }
+  // }, [id, friend, socket]);
+
+  // Mark messages as seen effect
+  // useEffect(() => {
+  //   if (!socket || !id || !currentUser?.id || !messages.length) return;
+
+  //   messages.forEach(msg => {
+  //     if (!msg.seen && msg.senderId._id !== currentUser.id) {
+  //       socket.emit("messageSeen", {
+  //         chatId: id,
+  //         messageId: msg._id,
+  //         seenBy: currentUser.id,
+  //       });
+  //     }
+  //   });
+  // }, [messages, socket, id, currentUser?.id]);
+
+  // useEffect(() => {
+  //   if (!socket || !id || !currentUser?.id || !messages.length) return;
+
+  //   // Mark messages as seen when they're received
+  //   messages.forEach((msg) => {
+  //     if (!msg.seen && msg.senderId._id !== currentUser.id) {
+  //       socket.emit("messageSeen", {
+  //         chatId: id,
+  //         messageId: msg._id,
+  //         seenBy: currentUser.id,
+  //       });
+  //     }
+  //   });
+  // }, [messages, socket, id, currentUser?.id]);
 
   useEffect(() => {
     if (!socket || !id || !currentUser?.id || !messages.length) return;
 
-    // Mark messages as seen when they're received
-    const unseenMessages = messages.filter(
-      (msg) => !msg.seen && msg.senderId._id !== currentUser.id
-    );
-
-    if (unseenMessages.length > 0) {
-      unseenMessages.forEach((msg) => {
+    messages.forEach((msg) => {
+      if (!msg.seen && msg.senderId._id !== currentUser.id) {
         socket.emit("messageSeen", {
           chatId: id,
           messageId: msg._id,
           seenBy: currentUser.id,
         });
-      });
-    }
+      }
+    });
   }, [messages, socket, id, currentUser?.id]);
 
   const safeEmit = (eventName, data) => {
@@ -402,8 +745,8 @@ const ChatScreen = () => {
       safeEmit("stopTyping", { chatId: id, userId: currentUser.id });
     }, 1500);
   };
-  
-  console.log("isOnline", isOnline); 
+
+  console.log(` isOnline`, isOnline);
 
   const renderMessage = ({ item }) => {
     const isCurrentUser = item.senderId._id === currentUser.id;
@@ -448,37 +791,32 @@ const ChatScreen = () => {
               {item.message}
             </Text>
           )}
-          <Text
-            className={`text-xs mt-1 
+          <View className=" flex-row justify-end">
+            <Text
+              className={`text-xs mt-1 
               ${
                 isCurrentUser
                   ? "text-indigo-100 font-poppinssemibold"
                   : "text-gray-500 font-poppinssemibold"
               }`}
-          >
-            {new Date(item.timeStamp).toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
-          </Text>
-          {isCurrentUser && (
-            <View className="flex-row items-center ml-1">
-              {item.seen ? (
-                <View className="flex-row">
-                  <Image
-                    source={{ uri: friend?.image }}
-                    className="w-3 h-3 rounded-full"
-                  />
-                </View>
-              ) : (
-                <Ionicons
-                  name="checkmark-done"
-                  size={16}
-                  color="rgba(255, 255, 255, 0.7)"
-                />
-              )}
-            </View>
-          )}
+            >
+              {new Date(item.timeStamp).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </Text>
+            {isCurrentUser && (
+              <View className="flex-row justify-end  ml-1">
+                {item.seen ? (
+                  <View className="flex-row">
+                    <CheckCheckIcon size={16} color="blue" />
+                  </View>
+                ) : (
+                  <CheckIcon size={16} color="white" />
+                )}
+              </View>
+            )}
+          </View>
         </View>
       </View>
     );
@@ -505,14 +843,14 @@ const ChatScreen = () => {
               className="flex-row items-center flex-1 ml-2"
             >
               <View className="relative">
-              <Image
-                source={{ uri: friend?.image }}
-                className="w-10 h-10 rounded-full border-2 border-indigo-100"
-              />
-              {isOnline && (
-                <View className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white" />
-              )}
-            </View>
+                <Image
+                  source={{ uri: friend?.image }}
+                  className="w-10 h-10 rounded-full border-2 border-indigo-100"
+                />
+                {isOnline && (
+                  <View className="absolute bottom-0 right-0 w-3 h-3 bg-indigo-500 rounded-full border-2 border-white" />
+                )}
+              </View>
 
               <View className="ml-3 flex-1">
                 <Text className="text-lg font-poppinssemibold text-gray-900">
@@ -520,10 +858,7 @@ const ChatScreen = () => {
                 </Text>
                 {friendTyping && (
                   <View className="pb-1">
-                    <Text className="text-sm font-intermedium">
-                      Typing...
-                    </Text>
-                    
+                    <Text className="text-sm font-intermedium">Typing...</Text>
                   </View>
                 )}
               </View>
@@ -546,6 +881,8 @@ const ChatScreen = () => {
         onContentSizeChange={() =>
           flatListRef.current?.scrollToEnd({ animated: false })
         }
+        // initialNumToRender={15}
+        // maxToRenderPerBatch={15}
         onLayout={() => flatListRef.current?.scrollToEnd({ animated: false })}
       />
       <ChatImageModalViewer
@@ -579,7 +916,7 @@ const ChatScreen = () => {
             />
           </TouchableOpacity>
           <TextInput
-            className="flex-1 bg-gray-50 rounded-full px-4 py-2 mr-3 border font-inter border-gray-200"
+            className="flex-1 bg-gray-50 rounded-3xl px-4 py-2 mr-3 border font-inter border-gray-200"
             placeholder={
               socketConnected ? "Type a message..." : "Connecting..."
             }

@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
-import { Camera, ImageIcon, X, Upload, ImagesIcon } from 'lucide-react-native';
+import { Camera, ImageIcon, X, Upload, ImagesIcon } from "lucide-react-native";
 
 const ImagePickerScreen = () => {
   const [image, setImage] = useState(null);
@@ -94,13 +94,10 @@ const ImagePickerScreen = () => {
     <SafeAreaView className="flex-1 bg-white">
       <View className="flex-1 px-4">
         {image ? (
-          // Image preview with minimal controls
+          
           <View className="flex-1 relative mt-4">
-            <Image 
-              source={{ uri: image }} 
-              className="flex-1 rounded-3xl"
-            />
-            
+            <Image source={{ uri: image }} className="flex-1 rounded-2xl" resizeMode="cover" />
+
             {/* Floating action buttons */}
             <View className="absolute top-4 right-4 flex-row space-x-4">
               <TouchableOpacity
@@ -131,7 +128,7 @@ const ImagePickerScreen = () => {
             <Text className="text-2xl font-intermedium text-center text-gray-900 mb-8">
               Add Photo
             </Text>
-            
+
             <View className=" gap-2 flex-row">
               <TouchableOpacity
                 onPress={takePhoto}

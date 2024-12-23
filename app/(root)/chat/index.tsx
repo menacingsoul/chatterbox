@@ -14,6 +14,7 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import axios from "axios";
 import CryptoJS from "react-native-crypto-js";
 import { useUser } from "@/contexts/UserContext";
+import { useSocket } from "@/contexts/SocketContext";
 import Loader from "@/components/Loader";
 import {
   PlusIcon,
@@ -30,11 +31,14 @@ const AllChatsScreen = () => {
   const [isSending, setIsSending] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [chats, setChats] = useState([]);
+  const [unreadCounts, setUnreadCounts] = useState({});
   const [loading, setLoading] = useState(true);
   const [selectedChat, setSelectedChat] = useState(null);
   const [error, setError] = useState(null);
+  const[socketConnected, setSocketConnected] = useState(false);
   const router = useRouter();
   const { user } = useUser();
+  const { socket } = useSocket();
 
   const SECRET_KEY = process.env.EXPO_PUBLIC_SECRET_KEY;
 
@@ -49,29 +53,104 @@ const AllChatsScreen = () => {
     }
   }, [user]);
 
+  useEffect(() => {
+    if (!user || !socket || !chats) return;
+    try {
+      socket.emit("join", { userId: user.id });
+      setSocketConnected(true);
+
+      // Listen for unread counts updates
+      socket.on("unreadCounts", ({ chats: updatedChats = [] }) => {
+        const countsMap = {};
+        updatedChats.forEach((chat) => {
+          if (chat?._id) {
+            countsMap[chat._id] = chat.unreadCount || 0;
+          }
+        });
+        setUnreadCounts(countsMap);
+      });
+
+      // Listen for individual unread count updates
+      socket.on("unreadCountUpdate", ({ chatId, unreadCounts = [] }) => {
+        if (!chatId) return;
+
+        setUnreadCounts((prev) => ({
+          ...prev,
+          [chatId]:
+            unreadCounts?.find?.((uc) => uc?.participantId === user.id)
+              ?.count || 0,
+        }));
+      });
+
+      // Listen for new messages
+      socket.on("lastMessageUpdate", ({ chatId, lastMessage }) => {
+        if (!chatId || !lastMessage) return;
+
+        setChats((prevChats) =>
+          prevChats.map((chat) =>
+            chat._id === chatId ? { ...chat, lastMessage } : chat
+          )
+        );
+      });
+
+      return () => {
+        socket.off("unreadCounts");
+        socket.off("unreadCountUpdate");
+        socket.off("lastMessageUpdate");
+      };
+    } catch (error) {
+      console.error("Socket setup error:", error);
+    }
+  }, [user, socket, chats]);
+
+  const safeEmit = (eventName, data) => {
+    if (socket && socketConnected) {
+      socket.emit(eventName, data);
+      return true;
+    }
+    console.warn("Socket not connected, message queued");
+    return false;
+  };
+  const encryptMessage = (message) => {
+    try {
+      if (!SECRET_KEY) {
+        throw new Error("Encryption key is not defined");
+      }
+      return CryptoJS.AES.encrypt(message, SECRET_KEY).toString();
+    } catch (error) {
+      console.error("Encryption error:", error);
+      throw new Error("Failed to encrypt message");
+    }
+  };
   const sendImage = async () => {
-    if (!imageUrl || !selectedChat) return;
+    if (!socketConnected||!imageUrl || !selectedChat) {
+      alert("Connection lost. Please try again.");
+      return;
+    }
 
     setIsSending(true);
-    try {
-      await axios.post(
-        `${process.env.EXPO_PUBLIC_BACKEND_URL}/api/chats/sendMessage`,
-        {
-          chatId: selectedChat,
-          senderId: user.id,
-          imageUrl,
-          messageType: "image",
-        }
-      );
 
-      await fetchChats();
-      router.setParams({ imageUrl: null });
-      router.push(`/chat/${selectedChat}`);
+    try {
+      const newMessage = {
+        chatId: selectedChat,
+        senderId: user.id,
+        messageType: "image",
+        message: await encryptMessage("Sent an image"),
+        imageUrl: imageUrl,
+        timeStamp: new Date(),
+      };
+
+      const sent = safeEmit("sendMessage", newMessage);
+
+      if (sent) {
+        console.log("Image sent successfully");
+        router.push(`/(root)/chat/${selectedChat}`);
+      }
     } catch (error) {
-      console.error("Error sending image:", error);
+      console.error("Error sending image message:", error);
+      alert("Error sending image. Please try again.");
     } finally {
       setIsSending(false);
-      setSelectedChat(null);
     }
   };
 
@@ -112,22 +191,34 @@ const AllChatsScreen = () => {
     );
   });
 
+  const handleChatPress = (chatId) => {
+    if (imageUrl) {
+      setSelectedChat(chatId);
+    } else {
+      // Mark messages as seen when entering chat
+      // socket.emit("join", { userId: user.id, chatId });
+      router.push(`/chat/${chatId}`);
+    }
+  };
+
+  const sortedChats = filteredChats.sort((a, b) => {
+    const timeA = a.lastMessage?.timeStamp ? new Date(a.lastMessage.timeStamp) : new Date(0);
+    const timeB = b.lastMessage?.timeStamp ? new Date(b.lastMessage.timeStamp) : new Date(0);
+    return timeB.getTime() - timeA.getTime();
+  });
+
   const renderChatItem = ({ item }) => {
     const otherParticipant = getOtherParticipant(item.participants);
     const isSelected = selectedChat === item._id;
+    const unreadCount = unreadCounts[item._id] || 0;
+    const isLastMessageFromOther = item.lastMessage.senderId !== user.id;
 
     return (
       <TouchableOpacity
         className={`flex-row items-center p-4 border-b border-gray-100 ${
           isSelected ? "bg-indigo-50" : ""
-        }`}
-        onPress={() => {
-          if (imageUrl) {
-            setSelectedChat(isSelected ? null : item._id);
-          } else {
-            router.push(`/chat/${item._id}`);
-          }
-        }}
+        }${unreadCount > 0 && isLastMessageFromOther ? "bg-indigo-50/20" : ""}`}
+        onPress={() => handleChatPress(item._id)}
         disabled={isSending}
       >
         <View className="relative">
@@ -149,7 +240,13 @@ const AllChatsScreen = () => {
 
         <View className="flex-1 ml-4">
           <View className="flex-row justify-between items-center">
-            <Text className="font-semibold font-poppinssemibold text-lg">
+            <Text
+              className={`font-poppinssemibold text-lg ${
+                unreadCount > 0 && isLastMessageFromOther
+                  ? "text-indigo-600"
+                  : ""
+              }`}
+            >
               {`${otherParticipant.firstName} ${otherParticipant.lastName}`}
             </Text>
             <Text className="text-gray-500 text-sm font-poppinssemibold">
@@ -159,18 +256,31 @@ const AllChatsScreen = () => {
 
           <View className="flex-row justify-between items-center mt-1">
             <Text
-              className="text-gray-600 flex-1 mr-4 font-intersemibold flex items-center gap-2"
+              className={`text-gray-600 flex-1 mr-4 font-intersemibold ${
+                unreadCount > 0 && isLastMessageFromOther
+                  ? " font-interbold"
+                  : ""
+              }`}
               numberOfLines={1}
             >
               {item.lastMessage.messageType === "image" ? (
-                <View className="flex-row items-center justify-center gap-1 ">
-                  <Images size={16} color={"#4b5563"} />
-                  <Text className=" font-intersemibold text-gray-600 ">Photo</Text>
+                <View className="flex-row items-center justify-center gap-1">
+                  <Images size={16} color="#4b5563" />
+                  <Text className="font-intersemibold text-gray-600">
+                    Photo
+                  </Text>
                 </View>
               ) : (
                 decryptMessage(item.lastMessage.message)
               )}
             </Text>
+            {unreadCount > 0 && isLastMessageFromOther && (
+              <View className="bg-indigo-600 rounded-full h-6 min-w-[24px] px-1.5 items-center justify-center">
+                <Text className="text-white text-xs font-poppinsbold">
+                  {unreadCount}
+                </Text>
+              </View>
+            )}
           </View>
         </View>
       </TouchableOpacity>
@@ -235,7 +345,7 @@ const AllChatsScreen = () => {
       </View>
 
       <FlatList
-        data={filteredChats}
+        data={sortedChats}
         renderItem={renderChatItem}
         keyExtractor={(item) => item._id}
         className="flex-1"
