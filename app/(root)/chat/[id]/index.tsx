@@ -30,7 +30,7 @@ import ChatImageModalViewer from "@/components/ChatImageModalViewer";
 import { useSocket } from "@/contexts/SocketContext";
 import { useFocusEffect } from "expo-router";
 import { useCallback } from "react";
-import { BackHandler } from 'react-native';
+import { BackHandler } from "react-native";
 
 const ChatScreen = () => {
   const { id } = useGlobalSearchParams();
@@ -53,6 +53,7 @@ const ChatScreen = () => {
   const [socketConnected, setSocketConnected] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [friendTyping, setFriendTyping] = useState(false);
+  const [areFriends, setAreFriends] = useState(false);
   const typingTimeoutRef = useRef(null);
 
   const handleSocketEvents = () => {
@@ -180,16 +181,15 @@ const ChatScreen = () => {
 
   useEffect(() => {
     const backHandler = BackHandler.addEventListener(
-      'hardwareBackPress',
+      "hardwareBackPress",
       () => {
-        router.push('/(root)/chat');
+        router.push("/(root)/chat");
         return true; // Prevents default behavior
       }
     );
-  
+
     return () => backHandler.remove();
   }, [router]);
-  
 
   const handleImagePress = (imageUrl: string) => {
     setSelectedImage(imageUrl);
@@ -246,6 +246,19 @@ const ChatScreen = () => {
         setFriend(
           response.data.participants.find((p) => p._id !== currentUser.id)
         );
+        const friendshipStatus = await axios.post(
+          `${process.env.EXPO_PUBLIC_BACKEND_URL}/api/friend/getFriendStatus`,
+          {
+            userId: currentUser.id,
+            friendId: friend?._id,
+          }
+        );
+
+        if (friendshipStatus.data.status === "none") {
+          setAreFriends(false);
+        } else {
+          setAreFriends(true);
+        }
         setIsLoading(false);
       } catch (error) {
         console.error("Error fetching chat:", error);
@@ -908,7 +921,9 @@ const ChatScreen = () => {
         )}
 
         <View className="flex-row items-center p-4 bg-white border-t border-gray-100">
-          <TouchableOpacity onPress={toggleEmojiPicker} className="mr-3">
+          {socketConnected && areFriends && (
+            <View>
+            <TouchableOpacity onPress={toggleEmojiPicker} className="mr-3">
             <Ionicons
               name={showEmoji ? "close-outline" : "happy-outline"}
               size={24}
@@ -918,7 +933,7 @@ const ChatScreen = () => {
           <TextInput
             className="flex-1 bg-gray-50 rounded-3xl px-4 py-2 mr-3 border font-inter border-gray-200"
             placeholder={
-              socketConnected ? "Type a message..." : "Connecting..."
+              socketConnected ? "Type a message..." : "Cannot send a message"
             }
             value={message}
             onChangeText={(text) => {
@@ -930,7 +945,7 @@ const ChatScreen = () => {
             minHeight={45}
             maxHeight={100}
             placeholderTextColor="#9CA3AF"
-            editable={socketConnected}
+            editable={socketConnected && areFriends}
           />
           <TouchableOpacity onPress={pickImage} className="mr-3">
             <Camera size={24} color="#6366F1" />
@@ -946,6 +961,17 @@ const ChatScreen = () => {
               <SendHorizonalIcon size={26} color="white" />
             )}
           </TouchableOpacity>
+          </View>
+
+          )}
+          {
+            !areFriends && (
+              <View className="flex-1 flex-row justify-center">
+                <Text className="text-gray-500 text-md font-poppinssemibold items-center" >You are not friends anymore</Text>
+              </View>
+            )
+          }
+          
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>

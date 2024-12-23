@@ -26,7 +26,7 @@ export default function Index() {
     return null; // Optionally replace with a spinner or other loading UI
   }
   return hasToken ? (
-    <Redirect href={"/(root)/profile"} />
+    <Redirect href={"/(root)/chat"} />
   ) : (
     <Redirect href={"/(auth)/welcome"} />
   );

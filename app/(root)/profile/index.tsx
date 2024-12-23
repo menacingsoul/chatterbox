@@ -37,6 +37,21 @@ const ProfileScreen = () => {
     });
   };
 
+  const handleRemoveFriend = async (friendId) => {
+    try {
+      await axios.post(
+        `${process.env.EXPO_PUBLIC_BACKEND_URL}/api/friend/removeFriend`,
+        {
+          userId: user.id,
+          friendId: friendId,
+        }
+      );
+      setFriends(friends.filter((friend) => friend._id !== friendId));
+    } catch (error) {
+      console.error("Error removing friend:", error);
+    }
+  };
+
   // Fetch user details and friends from the backend
   useEffect(() => {
     if (user?.email) {
@@ -57,7 +72,7 @@ const ProfileScreen = () => {
               params: { userId: user.id },
             }
           );
-          setFriends(friendsResponse.data.slice(0, 3)); // Limit to 3 friends
+          setFriends(friendsResponse.data.slice(0, 3));
         } catch (error) {
           console.error("Error fetching data:", error);
         } finally {
@@ -99,7 +114,10 @@ const ProfileScreen = () => {
         <View className="px-4 pb-4">
           {/* Avatar */}
           <View className="relative -mt-16 mb-4">
-            <TouchableOpacity onPress={() => setImageModalVisible(true)} activeOpacity={0.9}>
+            <TouchableOpacity
+              onPress={() => setImageModalVisible(true)}
+              activeOpacity={0.9}
+            >
               <Image
                 source={{ uri: userData?.image }}
                 className="w-32 h-32 rounded-full border-4 border-white"
@@ -137,7 +155,9 @@ const ProfileScreen = () => {
               <View className="p-2 rounded-full mr-2">
                 <MapPin size={24} color="#6366f1" />
               </View>
-              <Text className="text-lg font-intermedium">{userData.location}</Text>
+              <Text className="text-lg font-intermedium">
+                {userData.location}
+              </Text>
             </View>
           </View>
 
@@ -186,7 +206,9 @@ const ProfileScreen = () => {
                   lastName={friend.lastName}
                   imageUri={friend.image}
                   onView={() => router.push(`/profile/${friend._id}`)}
-                  onRemove={() => {}}
+                  onRemove={() => {
+                    handleRemoveFriend(friend._id);
+                  }}
                 />
               ))
             )}
