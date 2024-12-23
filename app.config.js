@@ -10,12 +10,8 @@ export default {
     newArchEnabled: true,
     splash: {
       image: "./assets/images/splash.png",
-      resizeMode: "contain",
+      resizeMode: "cover",
       backgroundColor: "#000000",
-    },
-    ios: {
-      supportsTablet: true,
-      bundleIdentifier: "com.menacing_soul.chatterbox",
     },
     android: {
       adaptiveIcon: {
