@@ -35,11 +35,21 @@ export default {
     plugins: [
       "expo-router",
       "expo-font",
+      "expo-camera",
       "expo-secure-store",
       "expo-notifications",
     ],
     experiments: {
       typedRoutes: true,
+    },
+    runtimeVersion: {
+      policy: "sdkVersion"
+    },
+    updates: {
+      url: "https://u.expo.dev/e546d9ae-0ad5-423f-a5b0-82718b8dd6e9", // Get this from EAS
+      enabled: true,
+      checkAutomatically: "ON_LOAD",
+      fallbackToCacheTimeout: 0
     },
     extra: {
       router: {
@@ -50,5 +60,6 @@ export default {
       },
     },
     owner: "menacing_soul",
+
   },
 };

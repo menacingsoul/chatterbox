@@ -5,11 +5,14 @@ import {
   useFonts,
   Inter_400Regular,
   Inter_700Bold,
+  Inter_600SemiBold,
+  Inter_500Medium
 
 } from "@expo-google-fonts/inter";
 import {Poppins_400Regular, Poppins_700Bold, Poppins_800ExtraBold, Poppins_600SemiBold} from "@expo-google-fonts/poppins";
 import * as SplashScreen from "expo-splash-screen";
 import { ClerkProvider, ClerkLoaded } from "@clerk/clerk-expo";
+import UpdateCheck from '@/components/UpdateCheck';
 import "../global.css";
 
 SplashScreen.preventAutoHideAsync();
@@ -25,6 +28,8 @@ export default function RootLayout() {
   const [fontsLoaded] = useFonts({
     Inter_400Regular,
     Inter_700Bold,
+    Inter_600SemiBold,
+    Inter_500Medium,
     Poppins_400Regular,
     Poppins_700Bold,
     Poppins_800ExtraBold,
@@ -45,6 +50,7 @@ export default function RootLayout() {
   return (
     <ClerkProvider publishableKey={publishableKey}>
       <ClerkLoaded>
+      <UpdateCheck />
         <Stack>
           <Stack.Screen name="(auth)" options={{ headerShown: false }} />
           <Stack.Screen name="index" options={{ headerShown: false }} />

@@ -1,6 +1,14 @@
 import React, { useEffect } from "react";
+import { useMemo } from "react";
 import { useRouter, usePathname } from "expo-router";
-import { View, TouchableOpacity, Text, StatusBar } from "react-native";
+import {
+  View,
+  TouchableOpacity,
+  Text,
+  StatusBar,
+  Animated,
+  Dimensions,
+} from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { FontAwesome, Ionicons, Feather } from "@expo/vector-icons";
 import {
@@ -12,86 +20,116 @@ import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { UserProvider } from "@/contexts/UserContext";
 import { PushTokenProvider } from "@/contexts/PushTokenContext";
+import { RequestsProvider } from "@/contexts/RequestsContext";
 import ChatterBoxHeader from "@/components/AppHeader";
 import NotificationHandler from "@/components/NotificationHandler";
+import { useRequests } from "@/contexts/RequestsContext";
+import { SocketProvider } from "@/contexts/SocketContext";
 
 const TabBar = () => {
   const router = useRouter();
   const pathname = usePathname();
+  const { pendingRequests } = useRequests();
+  const windowWidth = Dimensions.get("window").width;
+
+  const slideAnimation = React.useRef(new Animated.Value(0)).current;
 
   const tabs = [
     {
       name: "chat",
       iconComponent: MaterialCommunityIcons,
       icon: "message-outline",
+      activeIcon: "message",
       label: "Messages",
     },
     {
       name: "explore",
       iconComponent: Ionicons,
       icon: "compass-outline",
+      activeIcon: "compass",
       label: "Explore",
     },
     {
       name: "requests",
       iconComponent: FontAwesome,
       icon: "bell-o",
+      activeIcon: "bell",
       label: "Requests",
     },
-    { name: "profile", iconComponent: Feather, icon: "user", label: "Profile" },
+    {
+      name: "profile",
+      iconComponent: Feather,
+      icon: "user",
+      activeIcon: "user",
+      label: "Profile",
+    },
   ];
 
-  return (
-    <View
-      style={{
-        position: "absolute",
-        bottom: 0,
-        left: 0,
-        right: 0,
-        backgroundColor: "white",
-        borderTopWidth: 1,
-        borderTopColor: "#e5e7eb",
-      }}
-    >
-      <View
-        style={{
-          flexDirection: "row",
-          justifyContent: "space-around",
-          alignItems: "center",
-          height: 64,
-        }}
-      >
-        {tabs.map((tab) => {
-          const isActive = pathname === `/${tab.name}`;
-          const Icon = tab.iconComponent;
+  const TAB_WIDTH = (windowWidth - 48) / tabs.length;
+  const activeIndex = tabs.findIndex((tab) => pathname === `/${tab.name}`);
 
-          return (
-            <TouchableOpacity
-              key={tab.name}
-              onPress={() => router.push(`/${tab.name}`)}
-              style={{
-                flex: 1,
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <Icon
-                name={tab.icon}
-                size={26} // Consistent icon size across all tabs
-                color={isActive ? "#818cf8" : "#6b7280"}
-              />
-              <Text
-                style={{
-                  fontSize: 12,
-                  marginTop: 4,
-                  color: isActive ? "#818cf8" : "#6b7280",
-                }}
-              >
-                {tab.label}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
+  useEffect(() => {
+    Animated.spring(slideAnimation, {
+      toValue: activeIndex,
+      useNativeDriver: true,
+      tension: 80,
+      friction: 12,
+    }).start();
+  }, [activeIndex]);
+
+  return (
+    <View className="absolute bottom-0 left-0 right-0 px-4 pb-4">
+      {/* Main container with consistent border radius */}
+      <View className="overflow-hidden rounded-2xl bg-gray-200 shadow-lg">
+        <View className="h-20">
+          <View className="flex-row justify-between items-center h-full relative">
+            {tabs.map((tab) => {
+              const isActive = pathname === `/${tab.name}`;
+              const Icon = tab.iconComponent;
+
+              return (
+                <TouchableOpacity
+                  key={tab.name}
+                  onPress={() => router.push(`/${tab.name}`)}
+                  className="relative items-center justify-center"
+                  style={{ width: TAB_WIDTH }}
+                >
+                  <View className="relative">
+                    <View
+                      className={`p-2 rounded-xl ${
+                        isActive ? "bg-indigo-500" : "bg-transparent"
+                      }`}
+                    >
+                      <Icon
+                        name={isActive ? tab.activeIcon : tab.icon}
+                        size={24}
+                        color={isActive ? "#ffffff" : "#9ca3af"}
+                      />
+                    </View>
+
+                    {tab.name === "requests" && pendingRequests > 0 && (
+                      <View className="absolute -top-1 -right-1 bg-red-500 rounded-full min-w-[18px] h-[18px] items-center justify-center px-1">
+                        <Text className="text-white text-[10px] font-poppinssemibold">
+                          {pendingRequests}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+
+                  <Text
+                    className={`text-[10px] mt-1 ${
+                      isActive
+                        ? "text-black font-poppinssemibold"
+                        : "text-gray-500 font-poppinsregular"
+                    }`}
+                  >
+                    {tab.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
       </View>
     </View>
   );
@@ -114,22 +152,39 @@ const Layout = () => {
   return (
     <UserProvider>
       <PushTokenProvider>
-        <NotificationHandler />
-        <View style={{ flex: 1 }}>
-          <StatusBar barStyle="dark-content" backgroundColor="#f9fafb" />
+        <RequestsProvider>
+          <NotificationHandler />
+          <View style={{ flex: 1 }}>
+            <StatusBar barStyle="dark-content" backgroundColor="#f9fafb" />
 
-          {!pathname.includes("chat/") && <ChatterBoxHeader />}
-
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="messages" options={{ headerShown: false }} />
-            <Stack.Screen name="explore" options={{ headerShown: false }} />
-            <Stack.Screen name="requests" options={{ headerShown: false }} />
-            <Stack.Screen name="profile" options={{ headerShown: false }} />
-            <Stack.Screen name="friends" options={{ headerShown: false }} />
-          </Stack>
-
-          {!pathname.includes("chat/") && <TabBar />}
-        </View>
+            {!pathname.includes("chat/") && <ChatterBoxHeader />}
+            <SocketProvider>
+              <Stack screenOptions={{ headerShown: false }}>
+                <Stack.Screen
+                  name="messages"
+                  options={{ headerShown: false }}
+                />
+                <Stack.Screen name="explore" options={{ headerShown: false }} />
+                <Stack.Screen
+                  name="requests"
+                  options={{ headerShown: false }}
+                />
+                <Stack.Screen name="profile" options={{ headerShown: false }} />
+                <Stack.Screen name="friends" options={{ headerShown: false }} />
+                <Stack.Screen name="camera" options={{ headerShown: false }} />
+                <Stack.Screen
+                  name="newConversation"
+                  options={{ headerShown: false }}
+                />
+              </Stack>
+            </SocketProvider>
+            {!pathname.includes("chat/") && (
+              <View className=" bg-white h-20">
+                <TabBar />
+              </View>
+            )}
+          </View>
+        </RequestsProvider>
       </PushTokenProvider>
     </UserProvider>
   );

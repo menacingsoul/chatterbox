@@ -3,52 +3,43 @@ import {
   View,
   Text,
   FlatList,
-  TouchableOpacity,
   TextInput,
-  Image,
   SafeAreaView,
-  ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
 import axios from "axios";
 import { useUser } from "@/contexts/UserContext";
 import Loader from "@/components/Loader";
+import UserCard from "@/components/UserCard";
+import PageEnd from "@/components/PageEnd";
 
 const ExploreScreen = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(true); // Loading state
-  const { user } = useUser();  // State for the decoded user
-  const router = useRouter();
+  const [loading, setLoading] = useState(true);
+  const { user } = useUser();
 
-  // Fetch users from backend with friendship statuses
   const fetchUsers = async () => {
-    if (!user) return; // Don't fetch users if user info is not available
+    if (!user) return;
     try {
       const response = await axios.get(
         `${process.env.EXPO_PUBLIC_BACKEND_URL}/api/user/getAllUsers`,
         { params: { email: user.email } }
       );
       setUsers(response.data);
-      console.log("Users:", response.data);
-      // Assuming response contains an array of users with friendship statuses
     } catch (error) {
       console.error("Error fetching users:", error);
     } finally {
-      setLoading(false); // Set loading to false after fetching
+      setLoading(false);
     }
   };
 
   useEffect(() => {
     fetchUsers();
-  }, [user]); // Trigger fetch when the user data changes
+  }, [user]);
 
-  // Send friend request or handle friendship based on current status
   const handleFriendRequest = async (userId) => {
     try {
-      console.log("User ID:", user?.id);
-      console.log("FriendID:", userId);
       await axios.post(
         `${process.env.EXPO_PUBLIC_BACKEND_URL}/api/friend/addFriend`,
         { userId: user?.id, friendId: userId }
@@ -59,97 +50,29 @@ const ExploreScreen = () => {
     }
   };
 
-  // Filter users based on search query
   const filteredUsers = users.filter(
     (userItem) =>
       userItem.firstName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       userItem.email.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const renderUserItem = ({ item }) => (
-    <View className="flex-row items-center p-4 border-b border-gray-100">
-      <TouchableOpacity
-        className="flex-row flex-1 items-center"
-        onPress={() =>
-          router.push({
-            pathname: `/profile/${item._id}`,
-            params: { friendshipStatus: item.friendshipStatus, userId: user.id },
-          })
-        }
-      >
-        <Image
-          source={{ uri: item.image }}
-          className="w-16 h-16 rounded-full"
-        />
-        <View className="flex-1 ml-4">
-          <Text className="font-semibold text-lg">
-            {item.firstName} {item.lastName}
-          </Text>
-          <Text className="text-gray-500">{item.email}</Text>
-          <Text className="text-gray-600 text-sm mt-1" numberOfLines={1}>
-            {item.about}
-          </Text>
-        </View>
-      </TouchableOpacity>
-
-      {item.friendshipStatus === "Add Friend" && (
-        <TouchableOpacity
-          className="px-4 py-2 rounded-full bg-indigo-400"
-          onPress={() => handleFriendRequest(item._id, "Add Friend")}
-        >
-          <Text className="text-white">Add Friend</Text>
-        </TouchableOpacity>
-      )}
-
-      {item.friendshipStatus === "Pending" && (
-        <TouchableOpacity
-          className="px-4 py-2 rounded-full bg-gray-200"
-          disabled={true}
-        >
-          <Text className="text-gray-600">Pending</Text>
-        </TouchableOpacity>
-      )}
-
-      {item.friendshipStatus === "View Request" && (
-        <TouchableOpacity
-          className="px-4 py-2 rounded-full bg-black"
-          onPress={() => router.push(`/(root)/requests`)}
-        >
-          <Text className="text-white">View Request</Text>
-        </TouchableOpacity>
-      )}
-
-      {item.friendshipStatus === "Friends" && (
-        <TouchableOpacity
-          className="px-4 py-2 rounded-full bg-gray-200"
-          disabled={true}
-        >
-          <Text className="text-gray-600">Friends</Text>
-        </TouchableOpacity>
-      )}
-    </View>
-  );
-
-  // Show loading spinner or empty state when no user is available
   if (!user || loading) {
     return (
       <SafeAreaView className="flex-1 justify-center items-center bg-white">
-        <Loader/>
+        <Loader />
       </SafeAreaView>
     );
   }
 
   return (
     <SafeAreaView className="flex-1 bg-white">
-      {/* Header */}
-      <View className="p-4 border-b border-gray-200">
-        <Text className="text-2xl font-bold mb-4">Explore</Text>
-
-        {/* Search Bar */}
+      <View className="px-4 pt-4 pb-2 border-b border-gray-200">
+        <Text className="text-2xl font-interbold mb-4">Explore</Text>
+        
         <View className="flex-row items-center bg-gray-100 rounded-full px-4 py-2">
           <Ionicons name="search-outline" size={20} color="gray" />
           <TextInput
-            className="flex-1 ml-2"
+            className="flex-1 ml-2 font-inter"
             placeholder="Search users"
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -157,12 +80,25 @@ const ExploreScreen = () => {
         </View>
       </View>
 
-      {/* Users List */}
       <FlatList
         data={filteredUsers}
-        renderItem={renderUserItem}
+        contentContainerStyle={{
+          paddingHorizontal: 14,
+          paddingTop: 10,
+          paddingBottom: 24,
+        }}
+        renderItem={({ item }) => (
+          <View className="">
+            <UserCard
+              user={item}
+              currentUserId={user.id}
+              onFriendRequest={handleFriendRequest}
+            />
+          </View>
+        )}
         keyExtractor={(item) => item.id}
-        className="flex-1"
+        showsVerticalScrollIndicator={false}
+        ListFooterComponent={<PageEnd />}
       />
     </SafeAreaView>
   );

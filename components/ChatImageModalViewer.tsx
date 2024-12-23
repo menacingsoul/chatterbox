@@ -3,17 +3,17 @@ import { Modal, Image, TouchableOpacity, Dimensions, View } from "react-native";
 import { useEffect } from "react";
 import * as ScreenCapture from "expo-screen-capture";
 
-interface ImageModalViewerProps {
+interface ChatImageModalViewerProps {
   visible: boolean;
   onClose: () => void;
-  imageUri?: string;
+  imageUri: string | null;
 }
 
-const ImageModalViewer = ({
+const ChatImageModalViewer = ({
   visible,
   onClose,
   imageUri,
-}: ImageModalViewerProps) => {
+}: ChatImageModalViewerProps) => {
   useEffect(() => {
     if (visible) {
       ScreenCapture.preventScreenCaptureAsync();
@@ -22,23 +22,23 @@ const ImageModalViewer = ({
       };
     }
   }, [visible]);
+
   return (
-    <Modal visible={visible} animationType="fade">
+    <Modal visible={visible} animationType="fade" transparent>
       <TouchableOpacity
-        className="flex-1 justify-center items-center"
+        className="flex-1 justify-center items-center bg-white"
         onPress={onClose}
         activeOpacity={1}
       >
-      
         {imageUri && (
           <View>
             <TouchableOpacity activeOpacity={1}>
               <Image
                 source={{ uri: imageUri }}
                 style={{
-                  width: Dimensions.get("window").width * 0.8,
-                  height: Dimensions.get("window").width * 0.8,
-                  borderRadius: 200,
+                  width: Dimensions.get("window").width * 0.9,
+                  height: Dimensions.get("window").width * 0.9,
+                  borderRadius: 0,
                 }}
                 resizeMode="contain"
               />
@@ -49,5 +49,4 @@ const ImageModalViewer = ({
     </Modal>
   );
 };
-
-export default ImageModalViewer;
+export default ChatImageModalViewer;
