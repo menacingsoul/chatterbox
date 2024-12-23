@@ -12,8 +12,20 @@ export default {
     newArchEnabled: true,
     splash: {
       image: "./assets/images/splash.png",
-      resizeMode: "cover",
+      resizeMode: "contain",
       backgroundColor: "#000000",
+      androidStatusBar: {
+        backgroundColor: "#000000",
+        translucent: false
+      },
+      ios: {
+        splash: {
+          image: "./assets/images/splash.png",
+          resizeMode: "contain",
+          backgroundColor: "#000000",
+          tabletImage: "./assets/images/splash.png" // For iPad
+        }
+      }
     },
     android: {
       adaptiveIcon: {
