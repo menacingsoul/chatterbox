@@ -273,7 +273,12 @@ const ChatScreen = () => {
           }
         );
 
-        setAreFriends(friendshipStatus.data.status !== "none");
+        if (friendshipStatus.data.status === "accepted") {
+          setAreFriends(true);
+        } else {
+          setAreFriends(false);
+        }
+        
         setFriendshipLoaded(true);
       } catch (error) {
         console.error("Error fetching friendship status:", error);
