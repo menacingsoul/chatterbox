@@ -946,7 +946,7 @@ const ChatScreen = () => {
           {!areFriends ? (
             // Not friends message
             <View className="w-full bg-gray-50 rounded-lg p-4 flex items-center justify-center">
-              <Text className="text-gray-500 font-inter text-center">
+              <Text className="text-gray-500 font-intersemibold text-center">
                 You can't send messages because you are not friends anymore
               </Text>
             </View>
