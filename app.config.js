@@ -1,3 +1,5 @@
+import { channel } from "expo-updates";
+
 export default {
   expo: {
     name: "chatterbox",
@@ -39,13 +41,28 @@ export default {
       typedRoutes: true,
     },
     runtimeVersion: {
-      policy: "sdkVersion"
+      policy: "sdkVersion",
     },
     updates: {
-      url: "https://u.expo.dev/e546d9ae-0ad5-423f-a5b0-82718b8dd6e9", // Get this from EAS
-      enabled: true,
-      checkAutomatically: "ON_LOAD",
-      fallbackToCacheTimeout: 0
+      url: "https://u.expo.dev/e546d9ae-0ad5-423f-a5b0-82718b8dd6e9",
+    },
+    build: {
+      development: {
+        developmentClient: true,
+        distribution: "internal",
+        channel: "development",
+      },
+      preview: {
+        distribution: "internal",
+        android: {
+          buildType: "apk",
+        },
+        channel: "preview",
+      },
+      production: {
+        distribution: "internal",
+        channel: "production",
+      },
     },
     extra: {
       router: {
@@ -56,6 +73,5 @@ export default {
       },
     },
     owner: "menacing_soul",
-
   },
 };

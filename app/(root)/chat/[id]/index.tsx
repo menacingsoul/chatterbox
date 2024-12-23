@@ -967,7 +967,7 @@ const ChatScreen = () => {
           {
             !areFriends && (
               <View className="flex-1 flex-row justify-center">
-                <Text className="text-gray-500 text-md font-poppinssemibold items-center" >You are not friends anymore</Text>
+                <Text className="text-gray-500 text-md font-poppinssemibold items-center" >You both are not friends anymore</Text>
               </View>
             )
           }

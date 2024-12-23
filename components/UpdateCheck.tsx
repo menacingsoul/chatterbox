@@ -37,7 +37,7 @@ export default function UpdateCheck() {
     <Modal transparent animationType="slide" visible={updateAvailable}>
       <View className="flex-1 justify-center items-center bg-black/50">
         <View className="bg-white p-4 rounded-2xl w-[80%]">
-          <Text className="text-xl font-inter text-center mb-4">
+          <Text className="text-xl font-interbold text-center mb-4">
             New Update Available!
           </Text>
           <Text className="text-gray-600 font-inter text-center mb-6">
@@ -46,7 +46,7 @@ export default function UpdateCheck() {
           </Text>
           <TouchableOpacity
             onPress={downloadUpdate}
-            className="bg-indigo-500 py-3 px-6 rounded-full"
+            className="bg-indigo-500 py-3 px-6 rounded--3xl"
           >
             <Text className="text-white font-inter text-center">
               Update Now
