@@ -54,6 +54,8 @@ const ChatScreen = () => {
   const [isTyping, setIsTyping] = useState(false);
   const [friendTyping, setFriendTyping] = useState(false);
   const [areFriends, setAreFriends] = useState(false);
+  const [chatLoaded, setChatLoaded] = useState(false);
+  const [friendshipLoaded, setFriendshipLoaded] = useState(false);
   const typingTimeoutRef = useRef(null);
 
   const handleSocketEvents = () => {
@@ -229,6 +231,7 @@ const ChatScreen = () => {
     return bytes.toString(CryptoJS.enc.Utf8);
   };
 
+  // Chat fetch effect
   useEffect(() => {
     const fetchChat = async () => {
       try {
@@ -239,35 +242,55 @@ const ChatScreen = () => {
 
         const decryptedMessages = response.data.messages.map((msg) => ({
           ...msg,
-          message: decryptMessage(msg.message), // Decrypt the message
+          message: decryptMessage(msg.message),
         }));
 
         setMessages(decryptedMessages);
         setFriend(
           response.data.participants.find((p) => p._id !== currentUser.id)
         );
-        const friendshipStatus = await axios.post(
-          `${process.env.EXPO_PUBLIC_BACKEND_URL}/api/friend/getFriendStatus`,
-          {
-            userId: currentUser.id,
-            friendId: friend?._id,
-          }
-        );
-
-        if (friendshipStatus.data.status === "none") {
-          setAreFriends(false);
-        } else {
-          setAreFriends(true);
-        }
-        setIsLoading(false);
+        setChatLoaded(true);
       } catch (error) {
         console.error("Error fetching chat:", error);
-        setIsLoading(false);
+        setChatLoaded(true); // Set to true even on error to prevent infinite loading
       }
     };
 
     fetchChat();
   }, []);
+
+  // Friendship status effect
+  useEffect(() => {
+    const fetchFriendshipStatus = async () => {
+      if (!friend?._id || !currentUser?.id) return;
+
+      try {
+        const friendshipStatus = await axios.post(
+          `${process.env.EXPO_PUBLIC_BACKEND_URL}/api/friend/getFriendStatus`,
+          {
+            userId: currentUser.id,
+            friendId: friend._id,
+          }
+        );
+
+        setAreFriends(friendshipStatus.data.status !== "none");
+        setFriendshipLoaded(true);
+      } catch (error) {
+        console.error("Error fetching friendship status:", error);
+        setAreFriends(false);
+        setFriendshipLoaded(true);
+      }
+    };
+
+    fetchFriendshipStatus();
+  }, [friend?._id, currentUser?.id]);
+
+  // Combined loading state effect
+  useEffect(() => {
+    if (chatLoaded && friendshipLoaded) {
+      setIsLoading(false);
+    }
+  }, [chatLoaded, friendshipLoaded]);
 
   useEffect(() => {
     if (flatListRef.current && messages.length > 0) {
@@ -919,59 +942,65 @@ const ChatScreen = () => {
             />
           </View>
         )}
-
-        <View className="flex-row items-center p-4 bg-white border-t border-gray-100">
-          {socketConnected && areFriends && (
-            <View>
-            <TouchableOpacity onPress={toggleEmojiPicker} className="mr-3">
-            <Ionicons
-              name={showEmoji ? "close-outline" : "happy-outline"}
-              size={24}
-              color="#6366F1"
-            />
-          </TouchableOpacity>
-          <TextInput
-            className="flex-1 bg-gray-50 rounded-3xl px-4 py-2 mr-3 border font-inter border-gray-200"
-            placeholder={
-              socketConnected ? "Type a message..." : "Cannot send a message"
-            }
-            value={message}
-            onChangeText={(text) => {
-              setMessage(text);
-              handleTyping();
-            }}
-            onFocus={() => setShowEmoji(false)}
-            multiline
-            minHeight={45}
-            maxHeight={100}
-            placeholderTextColor="#9CA3AF"
-            editable={socketConnected && areFriends}
-          />
-          <TouchableOpacity onPress={pickImage} className="mr-3">
-            <Camera size={24} color="#6366F1" />
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={sendMessage}
-            className="bg-indigo-500 rounded-full p-2.5 shadow-sm"
-            disabled={message.trim().length === 0}
-          >
-            {isSending ? (
-              <ActivityIndicator color="white" size="small" />
-            ) : (
-              <SendHorizonalIcon size={26} color="white" />
-            )}
-          </TouchableOpacity>
-          </View>
-
+        <View className="flex-col items-center p-4 bg-white border-t border-gray-100">
+          {!areFriends ? (
+            // Not friends message
+            <View className="w-full bg-gray-50 rounded-lg p-4 flex items-center justify-center">
+              <Text className="text-gray-500 font-inter text-center">
+                You can't send messages because you are not friends anymore
+              </Text>
+            </View>
+          ) : (
+            // Normal chat input
+            <View className="flex-row items-center w-full">
+              <TouchableOpacity onPress={toggleEmojiPicker} className="mr-3">
+                <Ionicons
+                  name={showEmoji ? "close-outline" : "happy-outline"}
+                  size={24}
+                  color="#6366F1"
+                />
+              </TouchableOpacity>
+              <TextInput
+                className="flex-1 bg-gray-50 rounded-3xl px-4 py-2 mr-3 border font-inter border-gray-200"
+                placeholder={
+                  socketConnected
+                    ? "Type a message..."
+                    : "Cannot send a message"
+                }
+                value={message}
+                onChangeText={(text) => {
+                  setMessage(text);
+                  handleTyping();
+                }}
+                onFocus={() => setShowEmoji(false)}
+                multiline
+                minHeight={45}
+                maxHeight={100}
+                placeholderTextColor="#9CA3AF"
+                editable={socketConnected && areFriends}
+              />
+              <TouchableOpacity
+                onPress={pickImage}
+                className="mr-3"
+                disabled={!areFriends}
+              >
+                <Camera size={24} color={areFriends ? "#6366F1" : "#9CA3AF"} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={sendMessage}
+                className={`${areFriends ? "bg-indigo-500" : "bg-gray-300"} rounded-full p-2.5 shadow-sm`}
+                disabled={
+                  !areFriends || !socketConnected || message.trim().length === 0
+                }
+              >
+                {isSending ? (
+                  <ActivityIndicator color="white" size="small" />
+                ) : (
+                  <SendHorizonalIcon size={26} color="white" />
+                )}
+              </TouchableOpacity>
+            </View>
           )}
-          {
-            !areFriends && (
-              <View className="flex-1 flex-row justify-center">
-                <Text className="text-gray-500 text-md font-poppinssemibold items-center" >You both are not friends anymore</Text>
-              </View>
-            )
-          }
-          
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
