@@ -39,7 +39,7 @@ const onboarding = [
     id: 2,
     title: "Real-Time Messaging",
     description:
-      "Send instant messages, emojis, and stay connected anywhere, anytime",
+      "Send messages, photos, and videos in real-time with friends and family with End-to-End Encryption for privacy",
     image: require("../../assets/images/welcome/chat.png"),
   },
   {
